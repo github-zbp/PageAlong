@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="PageAlong icon">
+  <rect width="128" height="128" rx="28" fill="#2f6f5e"/>
+  <path d="M36 24h42l18 18v62H36z" fill="#fff7ea"/>
+  <path d="M78 24v18h18z" fill="#e7d7bd"/>
+  <path d="M48 50h26" stroke="#2f6f5e" stroke-width="8" stroke-linecap="round"/>
+  <path d="M48 68h18" stroke="#2f6f5e" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="82" cy="82" r="24" fill="#d39a42"/>
+  <path d="M75 69v26l22-13z" fill="#fff7ea"/>
+</svg>

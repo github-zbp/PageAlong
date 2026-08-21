@@ -1,0 +1,27 @@
+{
+  "name": "pagealong-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node -r ./scripts/webcrypto-shim.cjs ./node_modules/vite/bin/vite.js build",
+    "test": "node -r ./scripts/webcrypto-shim.cjs ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node -r ./scripts/webcrypto-shim.cjs ./node_modules/vitest/vitest.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.453.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/node": "20.11.30",
+    "@types/react": "18.2.73",
+    "@types/react-dom": "18.2.23",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "5.4.5",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.8"
+  }
+}

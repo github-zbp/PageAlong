@@ -1,0 +1,19 @@
+[project]
+name = "web-reader-worker"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "celery[redis]>=5.4.0",
+  "pydantic-settings>=2.3.4"
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.2",
+  "ruff>=0.5.5"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+

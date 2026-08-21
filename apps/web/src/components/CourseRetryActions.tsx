@@ -1,0 +1,59 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { retryFailedCourseJob } from "@/lib/api";
+import type { Dictionary } from "@/lib/i18n";
+
+export function CourseRetryActions({
+  courseId,
+  dictionary,
+  failedReason,
+  onRetried
+}: {
+  courseId: string;
+  dictionary: Dictionary;
+  failedReason?: string | null;
+  onRetried?: () => void | Promise<void>;
+}) {
+  const router = useRouter();
+  const [isSubmitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setSubmitting(true);
+    setError("");
+    try {
+      await retryFailedCourseJob(courseId);
+      if (onRetried) {
+        await onRetried();
+        setSubmitting(false);
+        return;
+      }
+      router.refresh();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : dictionary.detail.retryError);
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="mb-5 rounded-lg border border-[#f1b8b3] bg-[#fff1f0] p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-[#1f1a14]">{dictionary.detail.failedTitle}</p>
+          {failedReason ? <p className="mt-1 text-sm leading-6 text-[#70685e]">{failedReason}</p> : null}
+          {error ? <p className="mt-2 text-sm text-[#b42318]">{error}</p> : null}
+        </div>
+        <button
+          className="pa-focus w-full rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
+          disabled={isSubmitting}
+          onClick={submit}
+          type="button"
+        >
+          {isSubmitting ? dictionary.detail.retrying : dictionary.detail.retry}
+        </button>
+      </div>
+    </div>
+  );
+}

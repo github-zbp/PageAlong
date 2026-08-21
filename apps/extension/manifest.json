@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "页相随 PageAlong",
+  "description": "Clip, listen, highlight, and sync webpages to PageAlong.",
+  "version": "0.1.0",
+  "action": {
+    "default_title": "页相随 PageAlong",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage", "tts"],
+  "host_permissions": ["https://web-reader.zbpblog.cn/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
