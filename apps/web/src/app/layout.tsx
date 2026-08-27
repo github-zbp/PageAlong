@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeBootstrap } from "@/components/ThemeBootstrap";
 
 export const metadata: Metadata = {
   title: "页相随 PageAlong",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <ThemeBootstrap />
+        {children}
+      </body>
     </html>
   );
 }

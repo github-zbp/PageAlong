@@ -86,6 +86,7 @@ def create_application_tables(engine: Engine) -> None:
     ensure_article_text_schema(engine)
     ensure_tts_schema(engine)
     ensure_media_schema(engine)
+    ensure_file_import_schema(engine)
     ensure_auth_schema(engine)
     with Session(engine) as session:
         seed_initial_admin(session)
@@ -107,11 +108,18 @@ def ensure_course_library_schema(engine: Engine) -> None:
             if dialect_name == "postgresql"
             else "BOOLEAN NOT NULL DEFAULT 0",
             "last_read_at": "TIMESTAMP WITHOUT TIME ZONE" if dialect_name == "postgresql" else "DATETIME",
+            "current_audio_resource_id": "VARCHAR(36)",
         }
         for column_name, column_definition in column_definitions.items():
             if column_name not in existing_columns:
                 connection.execute(text(f"ALTER TABLE courses ADD COLUMN {column_name} {column_definition}"))
         connection.execute(text("CREATE INDEX IF NOT EXISTS ix_courses_series_id ON courses (series_id)"))
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_courses_current_audio_resource_id "
+                "ON courses (current_audio_resource_id)"
+            )
+        )
 
         if "course_series" in table_names:
             series_columns = {column["name"] for column in inspect(connection).get_columns("course_series")}
@@ -152,10 +160,15 @@ def ensure_tts_schema(engine: Engine) -> None:
         if "generation_jobs" in table_names:
             if dialect_name == "postgresql":
                 _ensure_postgres_enum_value(connection, "jobtype", "URL_IMPORT")
+                _ensure_postgres_enum_value(connection, "jobtype", "COURSE_EXPORT_MARKDOWN")
+                _ensure_postgres_enum_value(connection, "jobtype", "COURSE_EXPORT_DOCX")
+                _ensure_postgres_enum_value(connection, "jobtype", "COURSE_EXPORT_PDF")
             _ensure_columns(
                 connection,
                 "generation_jobs",
                 {
+                    "target_type": "VARCHAR(64) NOT NULL DEFAULT 'course'",
+                    "target_id": "VARCHAR(36) NOT NULL DEFAULT ''",
                     "provider": "VARCHAR(64)",
                     "fallback_provider": "VARCHAR(64)",
                     "tier": "VARCHAR(32)",
@@ -169,6 +182,7 @@ def ensure_tts_schema(engine: Engine) -> None:
                     "heartbeat_at": timestamp_type,
                     "progress_current": "INTEGER NOT NULL DEFAULT 0",
                     "progress_total": "INTEGER NOT NULL DEFAULT 0",
+                    "result_resource_id": "VARCHAR(36)",
                     "created_at": timestamp_type,
                     "updated_at": timestamp_type,
                 },
@@ -179,6 +193,26 @@ def ensure_tts_schema(engine: Engine) -> None:
                     "ON generation_jobs (idempotency_key)"
                 )
             )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_generation_jobs_result_resource_id "
+                    "ON generation_jobs (result_resource_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_generation_jobs_target_type_target_id "
+                    "ON generation_jobs (target_type, target_id)"
+                )
+            )
+            connection.execute(
+                text(
+                    "UPDATE generation_jobs "
+                    "SET target_type = 'course', target_id = course_id "
+                    "WHERE (target_type IS NULL OR target_type = '') "
+                    "AND course_id IS NOT NULL"
+                )
+            )
 
         if "audio_assets" in table_names:
             _ensure_columns(
@@ -186,6 +220,7 @@ def ensure_tts_schema(engine: Engine) -> None:
                 "audio_assets",
                 {
                     "generation_job_id": "VARCHAR(36)",
+                    "resource_id": "VARCHAR(36)",
                     "model_id": "VARCHAR(128) NOT NULL DEFAULT ''",
                     "tier": "VARCHAR(32) NOT NULL DEFAULT 'free'",
                     "storage_backend": "VARCHAR(32) NOT NULL DEFAULT 'local'",
@@ -201,6 +236,7 @@ def ensure_tts_schema(engine: Engine) -> None:
             connection.execute(
                 text("CREATE INDEX IF NOT EXISTS ix_audio_assets_generation_job_id ON audio_assets (generation_job_id)")
             )
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_audio_assets_resource_id ON audio_assets (resource_id)"))
 
         if "tts_segments" in table_names:
             _ensure_columns(
@@ -219,8 +255,35 @@ def ensure_media_schema(engine: Engine) -> None:
             connection,
             "article_image_assets",
             {
+                "resource_id": "VARCHAR(36)",
                 "metadata_json": "TEXT NOT NULL DEFAULT '{}'",
             },
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_article_image_assets_resource_id "
+                "ON article_image_assets (resource_id)"
+            )
+        )
+
+
+def ensure_file_import_schema(engine: Engine) -> None:
+    with engine.begin() as connection:
+        table_names = set(inspect(connection).get_table_names())
+        if "file_import_items" not in table_names:
+            return
+        _ensure_columns(
+            connection,
+            "file_import_items",
+            {
+                "resource_id": "VARCHAR(36)",
+            },
+        )
+        connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_file_import_items_resource_id "
+                "ON file_import_items (resource_id)"
+            )
         )
 
 

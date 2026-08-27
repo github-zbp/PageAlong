@@ -6,15 +6,23 @@ import type {
   CourseSeries,
   CourseSeriesDetail,
   CourseSummary,
+  DownloadRequest,
   FileImportBatch,
-  GenerationJob
+  GenerationJob,
+  FeedbackCategory,
+  PaginatedList,
+  Pagination,
+  TagRead
 } from "./types";
+import type { ThemePreferences } from "./theme-preferences";
 
 const DEFAULT_PUBLIC_API_BASE_URL = "http://localhost:8000";
 const DEFAULT_SERVER_API_BASE_URL = "http://127.0.0.1:8000";
 const CONFIGURED_PUBLIC_API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 const PUBLIC_API_BASE_URL = CONFIGURED_PUBLIC_API_BASE_URL || DEFAULT_PUBLIC_API_BASE_URL;
 const AUTH_TOKEN_STORAGE_KEY = "pagealong_auth_token";
+const FALLBACK_TAG_COLOR = "#cbd5e1";
+const FALLBACK_TAG_UPDATED_AT = "1970-01-01T00:00:00.000Z";
 
 function isAbsoluteHttpUrl(value: string): boolean {
   return /^https?:\/\//i.test(value);
@@ -50,10 +58,10 @@ function apiUrl(path: string): string {
   return `${getApiBaseUrl()}${path}`;
 }
 
-function queryString(params: Record<string, string | boolean | undefined>): string {
+function queryString(params: Record<string, string | number | boolean | undefined | null>): string {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value === undefined || value === "") {
+    if (value === undefined || value === null || value === "") {
       return;
     }
     searchParams.set(key, String(value));
@@ -92,6 +100,102 @@ function headersToRecord(init?: HeadersInit): Record<string, string> {
     return Object.fromEntries(init.entries());
   }
   return { ...(init as Record<string, string>) };
+}
+
+function normalizeTag(tag: TagRead | string): TagRead {
+  if (typeof tag === "string") {
+    return {
+      id: tag,
+      name: tag,
+      color: FALLBACK_TAG_COLOR,
+      usage_count: 0,
+      updated_at: FALLBACK_TAG_UPDATED_AT
+    };
+  }
+  return tag;
+}
+
+function normalizeTags(tags: Array<TagRead | string> | undefined | null): TagRead[] {
+  return (tags ?? []).map(normalizeTag);
+}
+
+function normalizeCourse<T extends { tags?: Array<TagRead | string> }>(course: T): T & { tags: TagRead[] } {
+  return {
+    ...course,
+    tags: normalizeTags(course.tags)
+  };
+}
+
+function normalizeCourseSeriesDetail<T extends { courses?: Array<{ tags?: Array<TagRead | string> }> }>(
+  series: T
+): T {
+  return {
+    ...series,
+    courses: (series.courses ?? []).map((course) => normalizeCourse(course))
+  };
+}
+
+type LegacyPaginatedResponse<T> = {
+  items: T[];
+  pagination?: Pagination;
+};
+
+function synthesizePagination(page: number, pageSize: number, total: number): Pagination {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  return {
+    page,
+    page_size: pageSize,
+    total,
+    total_pages: totalPages,
+    has_previous: page > 1,
+    has_next: false
+  };
+}
+
+function normalizePaginatedResponse<T>(
+  body: LegacyPaginatedResponse<T>,
+  page: number,
+  pageSize: number
+): PaginatedList<T> {
+  if (body.pagination) {
+    return {
+      items: body.items,
+      pagination: body.pagination
+    };
+  }
+
+  const pagination = synthesizePagination(page, pageSize, body.items.length);
+  return {
+    items: body.items,
+    pagination
+  };
+}
+
+async function fetchPaginatedJson<T>(
+  path: string,
+  page: number,
+  pageSize: number,
+  fallback: string,
+  auth = true
+): Promise<PaginatedList<T>> {
+  const body = await apiJson<LegacyPaginatedResponse<T>>(path, { cache: "no-store" }, fallback, auth);
+  return normalizePaginatedResponse(body, page, pageSize);
+}
+
+async function fetchAllPages<T>(loadPage: (page: number, pageSize: number) => Promise<PaginatedList<T>>): Promise<T[]> {
+  const items: T[] = [];
+  let page = 1;
+
+  while (true) {
+    const response = await loadPage(page, 100);
+    items.push(...response.items);
+    if (!response.pagination.has_next) {
+      break;
+    }
+    page += 1;
+  }
+
+  return items;
 }
 
 export function hasAuthToken(): boolean {
@@ -226,6 +330,22 @@ export async function getCurrentUser(): Promise<AuthUser> {
   return apiJson<AuthUser>("/auth/me", { cache: "no-store" }, "Failed to load account");
 }
 
+export async function getCurrentThemePreferences(): Promise<ThemePreferences> {
+  return apiJson<ThemePreferences>("/auth/me/preferences", { cache: "no-store" }, "Failed to load preferences");
+}
+
+export async function updateCurrentThemePreferences(input: ThemePreferences): Promise<ThemePreferences> {
+  return apiJson<ThemePreferences>(
+    "/auth/me/preferences",
+    {
+      method: "PUT",
+      headers: jsonHeaders(),
+      body: JSON.stringify(input)
+    },
+    "Failed to save preferences"
+  );
+}
+
 export async function logoutCurrentSession(): Promise<void> {
   try {
     await apiNoContent("/auth/logout", { method: "POST" }, "Failed to sign out");
@@ -339,23 +459,74 @@ export async function sendAdminPasswordReset(userId: string): Promise<void> {
   );
 }
 
+export async function submitFeedback(input: {
+  category: FeedbackCategory;
+  summary: string;
+  message: string;
+  pagePath?: string;
+}): Promise<void> {
+  await apiNoContent(
+    "/feedback",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        category: input.category,
+        summary: input.summary,
+        message: input.message,
+        page_path: input.pagePath || undefined
+      })
+    },
+    "Failed to send feedback"
+  );
+}
+
 export async function listCourses(input: {
   libraryType?: "all" | "fragmented" | "series";
   query?: string;
   tag?: string;
   starred?: boolean;
 } = {}): Promise<CourseSummary[]> {
-  const body = await apiJson<{ items: CourseSummary[] }>(
+  return fetchAllPages(async (page, pageSize) => {
+    const body = await listCoursesPage({
+      libraryType: input.libraryType,
+      query: input.query,
+      tag: input.tag,
+      starred: input.starred,
+      page,
+      pageSize
+    });
+    return body;
+  });
+}
+
+export async function listCoursesPage(input: {
+  libraryType?: "all" | "fragmented" | "series";
+  query?: string;
+  tag?: string;
+  starred?: boolean;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<CourseSummary>> {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  const body = await fetchPaginatedJson<CourseSummary>(
     `/courses${queryString({
       library_type: input.libraryType,
       query: input.query,
       tag: input.tag,
-      starred: input.starred
+      starred: input.starred,
+      page,
+      page_size: pageSize
     })}`,
-    { cache: "no-store" },
+    page,
+    pageSize,
     "Failed to load courses"
   );
-  return body.items;
+  return {
+    ...body,
+    items: body.items.map((course) => normalizeCourse(course))
+  };
 }
 
 export async function listCourseSeries(input: {
@@ -363,29 +534,113 @@ export async function listCourseSeries(input: {
   tag?: string;
   starred?: boolean;
 } = {}): Promise<CourseSeries[]> {
-  const body = await apiJson<{ items: CourseSeries[] }>(
+  return fetchAllPages(async (page, pageSize) => {
+    const body = await listCourseSeriesPage({
+      query: input.query,
+      tag: input.tag,
+      starred: input.starred,
+      page,
+      pageSize
+    });
+    return body;
+  });
+}
+
+export async function listCourseSeriesPage(input: {
+  query?: string;
+  tag?: string;
+  starred?: boolean;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<CourseSeries>> {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  return fetchPaginatedJson<CourseSeries>(
     `/courses/series${queryString({
       query: input.query,
       tag: input.tag,
-      starred: input.starred
+      starred: input.starred,
+      page,
+      page_size: pageSize
     })}`,
-    { cache: "no-store" },
+    page,
+    pageSize,
     "Failed to load course series"
   );
-  return body.items;
+}
+
+export async function createCourseSeries(input: {
+  title: string;
+  isStarred?: boolean;
+}): Promise<CourseSeries> {
+  return apiJson<CourseSeries>(
+    "/courses/series",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        title: input.title,
+        is_starred: input.isStarred ?? false
+      })
+    },
+    "Failed to create series"
+  );
 }
 
 export async function getCourseSeries(seriesId: string): Promise<CourseSeriesDetail> {
-  return apiJson<CourseSeriesDetail>(
+  const body = await apiJson<CourseSeriesDetail>(
     `/courses/series/${seriesId}`,
     { cache: "no-store" },
     "Failed to load course series"
   );
+  return normalizeCourseSeriesDetail(body);
 }
 
-export async function listCourseTags(): Promise<string[]> {
-  const body = await apiJson<{ items: string[] }>("/courses/tags", { cache: "no-store" }, "Failed to load course tags");
-  return body.items;
+export async function listCourseTags(): Promise<TagRead[]> {
+  const body = await apiJson<{ items: Array<TagRead | string> }>(
+    "/courses/tags",
+    { cache: "no-store" },
+    "Failed to load course tags"
+  );
+  return normalizeTags(body.items);
+}
+
+export async function createCourseTag(input: { name: string; color?: string }): Promise<TagRead> {
+  return apiJson<TagRead>(
+    "/courses/tags",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        name: input.name,
+        color: input.color
+      })
+    },
+    "Failed to create tag"
+  );
+}
+
+export async function updateCourseTag(input: {
+  tagId: string;
+  name?: string;
+  color?: string;
+}): Promise<TagRead> {
+  return apiJson<TagRead>(
+    `/courses/tags/${input.tagId}`,
+    {
+      method: "PATCH",
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        name: input.name,
+        color: input.color
+      })
+    },
+    "Failed to update tag"
+  );
+}
+
+export async function deleteCourseTag(tagId: string): Promise<void> {
+  await apiNoContent(`/courses/tags/${tagId}`, { method: "DELETE" }, "Failed to delete tag");
 }
 
 export async function createTextCourse(input: {
@@ -393,7 +648,7 @@ export async function createTextCourse(input: {
   text: string;
   seriesTitle?: string;
 }): Promise<Course> {
-  return apiJson<Course>(
+  const body = await apiJson<Course>(
     "/courses",
     {
       method: "POST",
@@ -407,6 +662,7 @@ export async function createTextCourse(input: {
     },
     "Failed to create course"
   );
+  return normalizeCourse(body);
 }
 
 export async function createUrlCourse(input: {
@@ -414,7 +670,7 @@ export async function createUrlCourse(input: {
   title?: string;
   seriesTitle?: string;
 }): Promise<Course> {
-  return apiJson<Course>(
+  const body = await apiJson<Course>(
     "/courses/import-url",
     {
       method: "POST",
@@ -427,6 +683,7 @@ export async function createUrlCourse(input: {
     },
     "Failed to import URL"
   );
+  return normalizeCourse(body);
 }
 
 export async function createExtensionSyncCourse(input: {
@@ -434,7 +691,7 @@ export async function createExtensionSyncCourse(input: {
   title?: string;
   seriesTitle?: string;
 }): Promise<Course> {
-  return apiJson<Course>(
+  const body = await apiJson<Course>(
     "/courses/import-url/extension-sync",
     {
       method: "POST",
@@ -453,10 +710,12 @@ export async function createExtensionSyncCourse(input: {
     },
     "Failed to sync URL"
   );
+  return normalizeCourse(body);
 }
 
 export async function getCourse(courseId: string): Promise<Course> {
-  return apiJson<Course>(`/courses/${courseId}`, { cache: "no-store" }, "Failed to load course");
+  const body = await apiJson<Course>(`/courses/${courseId}`, { cache: "no-store" }, "Failed to load course");
+  return normalizeCourse(body);
 }
 
 export async function createFileImportBatch(input: {
@@ -506,56 +765,65 @@ export async function retryFailedCourseJob(courseId: string): Promise<Generation
   );
 }
 
-export async function downloadCourseToBrowser(courseId: string, format: CourseDownloadFormat): Promise<void> {
-  const path = format === "audio" ? `/courses/${courseId}/audio-download` : `/courses/${courseId}/exports/${format}`;
-  const response = await apiFetch(path);
-  if (!response.ok) {
-    throw new Error(await responseErrorMessage(response, "Failed to download course"));
-  }
-  const blob = await response.blob();
-  const filename = filenameFromContentDisposition(response.headers.get("content-disposition")) || fallbackDownloadFilename(format);
-  triggerBrowserDownload(blob, filename);
+export async function requestCourseDownload(
+  courseId: string,
+  format: CourseDownloadFormat
+): Promise<DownloadRequest> {
+  return apiJson<DownloadRequest>(
+    `/courses/${courseId}/downloads/${format}`,
+    { method: "POST" },
+    "Failed to request course download"
+  );
 }
 
-function filenameFromContentDisposition(value: string | null): string {
-  if (!value) {
-    return "";
-  }
-  const encoded = value.match(/filename\*=UTF-8''([^;]+)/i);
-  if (encoded) {
-    try {
-      return decodeURIComponent(encoded[1]);
-    } catch {
-      return encoded[1];
-    }
-  }
-  const quoted = value.match(/filename="([^"]+)"/i);
-  if (quoted) {
-    return quoted[1];
-  }
-  const plain = value.match(/filename=([^;]+)/i);
-  return plain?.[1]?.trim() ?? "";
+export async function listGenerationJobs(input: { scope?: "resource" | "all" } = {}): Promise<GenerationJob[]> {
+  return fetchAllPages(async (page, pageSize) => {
+    const body = await listGenerationJobsPage({
+      scope: input.scope,
+      page,
+      pageSize
+    });
+    return body;
+  });
 }
 
-function fallbackDownloadFilename(format: CourseDownloadFormat): string {
-  if (format === "audio") {
-    return "course-audio.mp3";
-  }
-  return `course.${format === "markdown" ? "md" : format}`;
+export async function listGenerationJobsPage(input: {
+  scope?: "resource" | "all";
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<GenerationJob>> {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  return fetchPaginatedJson<GenerationJob>(
+    `/jobs${queryString({
+      scope: input.scope,
+      page,
+      page_size: pageSize
+    })}`,
+    page,
+    pageSize,
+    "Failed to load download tasks"
+  );
 }
 
-function triggerBrowserDownload(blob: Blob, filename: string): void {
-  if (typeof window === "undefined" || typeof document === "undefined") {
+export async function getGenerationJob(jobId: string): Promise<GenerationJob> {
+  return apiJson<GenerationJob>(`/jobs/${jobId}`, { cache: "no-store" }, "Failed to load download task");
+}
+
+export function openDownloadUrl(downloadUrl: string): void {
+  if (typeof window === "undefined") {
     return;
   }
-  const objectUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = objectUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+  window.location.assign(downloadUrl);
+}
+
+export async function downloadCourseToBrowser(courseId: string, format: CourseDownloadFormat): Promise<void> {
+  const request = await requestCourseDownload(courseId, format);
+  if (request.status === "ready" && request.download_url) {
+    openDownloadUrl(request.download_url);
+    return;
+  }
+  throw new Error(request.message || "Download is being prepared");
 }
 
 export async function savePlaybackProgress(input: {
@@ -587,9 +855,10 @@ export async function updateCourseLibrary(input: {
   seriesId?: string;
   seriesTitle?: string;
   tags?: string[];
+  tagIds?: string[];
   isStarred?: boolean;
 }): Promise<Course> {
-  return apiJson<Course>(
+  const body = await apiJson<Course>(
     `/courses/${input.courseId}/library`,
     {
       method: "PATCH",
@@ -599,11 +868,13 @@ export async function updateCourseLibrary(input: {
         series_id: input.seriesId,
         series_title: input.seriesTitle,
         tags: input.tags,
+        tag_ids: input.tagIds,
         is_starred: input.isStarred
       })
     },
     "Failed to update course"
   );
+  return normalizeCourse(body);
 }
 
 export async function updateCourseSeries(input: {

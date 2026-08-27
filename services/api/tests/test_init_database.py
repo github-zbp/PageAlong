@@ -101,6 +101,7 @@ def test_create_application_tables_registers_current_models():
         "courses",
         "file_import_batches",
         "file_import_items",
+        "file_resources",
         "generation_jobs",
         "playback_progress",
         "sentences",
@@ -108,6 +109,7 @@ def test_create_application_tables_registers_current_models():
         "tts_quota_periods",
         "tts_segments",
         "tts_usage_events",
+        "user_preferences",
         "users",
     }
 
@@ -163,7 +165,7 @@ def test_create_application_tables_upgrades_legacy_course_columns():
     init_database.create_application_tables(engine)
 
     course_columns = {column["name"] for column in inspect(engine).get_columns("courses")}
-    assert {"series_id", "tags_json", "is_starred", "last_read_at"}.issubset(course_columns)
+    assert {"series_id", "tags_json", "is_starred", "last_read_at", "current_audio_resource_id"}.issubset(course_columns)
     assert "course_series" in inspect(engine).get_table_names()
     with engine.begin() as connection:
         legacy_row = connection.execute(
@@ -263,10 +265,13 @@ def test_create_application_tables_upgrades_legacy_tts_columns():
                     job_type VARCHAR(32),
                     status VARCHAR(32),
                     attempt_count INTEGER,
+                    target_type VARCHAR(64),
+                    target_id VARCHAR(36),
                     error_code VARCHAR(128),
                     error_message TEXT,
                     started_at DATETIME,
-                    finished_at DATETIME
+                    finished_at DATETIME,
+                    result_resource_id VARCHAR(36)
                 )
                 """
             )
@@ -283,6 +288,7 @@ def test_create_application_tables_upgrades_legacy_tts_columns():
                     speed FLOAT,
                     format VARCHAR(16),
                     object_path VARCHAR(1024),
+                    resource_id VARCHAR(36),
                     duration_seconds INTEGER,
                     character_count INTEGER,
                     is_current BOOLEAN,
@@ -300,6 +306,8 @@ def test_create_application_tables_upgrades_legacy_tts_columns():
     tts_segment_columns = {column["name"] for column in inspect(engine).get_columns("tts_segments")}
     assert {"course_sections", "tts_segments", "tts_usage_events", "tts_quota_periods"}.issubset(table_names)
     assert {
+        "target_type",
+        "target_id",
         "provider",
         "fallback_provider",
         "tier",
@@ -309,11 +317,13 @@ def test_create_application_tables_upgrades_legacy_tts_columns():
         "lease_owner",
         "progress_current",
         "progress_total",
+        "result_resource_id",
         "created_at",
         "updated_at",
     }.issubset(generation_job_columns)
     assert {
         "generation_job_id",
+        "resource_id",
         "model_id",
         "tier",
         "storage_backend",
@@ -389,7 +399,7 @@ def test_create_application_tables_upgrades_legacy_article_image_columns():
     init_database.create_application_tables(engine)
 
     image_asset_columns = {column["name"] for column in inspect(engine).get_columns("article_image_assets")}
-    assert "metadata_json" in image_asset_columns
+    assert {"metadata_json", "resource_id"}.issubset(image_asset_columns)
 
 
 def test_ensure_tts_schema_adds_url_import_to_postgres_jobtype_enum(monkeypatch):

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.course import ArticleImageAsset, ArticleText, Course
+from app.models.file_resource import ResourceKind, ResourceVariant
+from app.services.file_resource_service import FileResourceService
 from app.services.object_storage import ObjectStorageService
 from app.services.media_compression import MediaCompressionService
 from app.services.url_safety import UnsafeUrlError, validate_public_http_url
@@ -57,6 +59,7 @@ def import_article_images(
     media_compression: MediaCompressionService | None = None,
 ) -> ArticleImageImportResult:
     storage = object_storage or ObjectStorageService.from_settings(article_image_storage_backend())
+    resource_service = FileResourceService(db, object_storage=storage)
     image_fetcher = fetch_image or download_image
     compressor = media_compression or MediaCompressionService.from_settings()
     limit = settings.url_import_image_max_count if max_images is None else max_images
@@ -78,10 +81,28 @@ def import_article_images(
         try:
             image = image_fetcher(resolved_url, settings.url_import_image_max_bytes)
             compressed = compressor.compress_image(image.content, image.content_type)
-            object_key = f"articles/{course.id}/images/{compressed.checksum_sha256}.{compressed.format}"
-            stored = storage.upload_bytes(
+            resource = resource_service.create_pending_resource(
+                user_id=course.user_id,
+                owner_type="article_image_asset",
+                owner_id=course.id,
+                resource_kind=ResourceKind.IMAGE,
+                resource_variant=ResourceVariant.IMAGE,
+                title=alt_text or course.title,
+                filename=f"{compressed.checksum_sha256}.{compressed.format}",
+                source_fingerprint=resource_service.build_fingerprint(
+                    "article-image",
+                    course.id,
+                    article_text.id,
+                    image.url,
+                    resolved_url,
+                    compressed.checksum_sha256,
+                ),
+                metadata_json=json.dumps(compressed.metadata, ensure_ascii=False),
+            )
+            stored = resource_service.store_bytes(
+                resource,
                 compressed.data,
-                object_key=object_key,
+                object_key=f"articles/{course.id}/images/{compressed.checksum_sha256}.{compressed.format}",
                 content_type=compressed.content_type,
             )
         except ImageImportError:
@@ -91,27 +112,29 @@ def import_article_images(
             failed_count += 1
             return ""
 
+        stored_object = stored.stored_object
         asset = ArticleImageAsset(
             course_id=course.id,
             article_text_id=article_text.id,
             source_url=image.url,
             alt_text=alt_text,
-            storage_backend=stored.storage_backend,
-            bucket=stored.bucket,
-            object_key=stored.object_key,
-            object_path=stored.object_path,
-            content_type=stored.content_type,
-            byte_size=stored.byte_size,
-            checksum_sha256=stored.checksum_sha256,
+            storage_backend=stored_object.storage_backend,
+            bucket=stored_object.bucket,
+            object_key=stored_object.object_key,
+            object_path=stored_object.object_path,
+            content_type=stored_object.content_type,
+            byte_size=stored_object.byte_size,
+            checksum_sha256=stored_object.checksum_sha256,
             metadata_json=json.dumps(compressed.metadata, ensure_ascii=False),
             status="imported",
+            resource_id=resource.id,
         )
         db.add(asset)
         db.flush()
         imported_count += 1
         render_url = (
-            stored.object_path
-            if is_absolute_http_url(stored.object_path)
+            stored_object.object_path
+            if is_absolute_http_url(stored_object.object_path)
             else f"/courses/{course.id}/images/{asset.id}"
         )
         return f"![{alt_text}]({render_url})"

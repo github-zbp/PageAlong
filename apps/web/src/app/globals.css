@@ -3,17 +3,19 @@
 @tailwind utilities;
 
 :root {
-  --pa-bg: #f7f2e8;
-  --pa-surface: #fffdf8;
-  --pa-muted-surface: #f3ede2;
-  --pa-ink: #1f1a14;
-  --pa-muted: #70685e;
-  --pa-line: #ddd2c1;
-  --pa-green: #2f6f5e;
-  --pa-green-soft: #dfece6;
-  --pa-amber: #c98a2e;
-  --pa-amber-soft: #f4e6ca;
+  --pa-bg: #ffffff;
+  --pa-surface: #fcfcfb;
+  --pa-muted-surface: #f7f7f2;
+  --pa-ink: #111111;
+  --pa-muted: #686862;
+  --pa-line: #e2e2dc;
+  --pa-green: #171717;
+  --pa-green-soft: rgba(23, 23, 23, 0.08);
+  --pa-amber: #42403b;
+  --pa-amber-soft: rgba(66, 64, 59, 0.12);
   --pa-error: #b42318;
+  --pa-error-soft: rgba(180, 35, 24, 0.1);
+  --pa-selection: rgba(23, 23, 23, 0.16);
 }
 
 html,
@@ -43,7 +45,7 @@ textarea {
 }
 
 ::selection {
-  background: #e8d5ad;
+  background: var(--pa-selection);
 }
 
 .pa-focus {

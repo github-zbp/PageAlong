@@ -48,13 +48,16 @@ def test_audio_generation_service_writes_asset_and_sentence_timeline(db_session,
     assert stored_course.status == CourseStatus.READY
     assert stored_course.duration_seconds > 0
     assert stored_course.current_audio_asset_id == assets[0].id
+    assert stored_course.current_audio_resource_id == assets[0].resource_id
     assert stored_job.status == JobStatus.SUCCEEDED
     assert stored_job.started_at is not None
     assert stored_job.finished_at is not None
+    assert stored_job.result_resource_id == assets[0].resource_id
     assert len(assets) == 1
     assert assets[0].provider == "fake"
     assert assets[0].format == "mp3"
     assert assets[0].content_type == "audio/mpeg"
+    assert assets[0].resource_id is not None
     assert json.loads(assets[0].metadata_json)["compression"]["status"] == "compressed"
     assert Path(assets[0].object_path).exists()
     assert [sentence.generation_status for sentence in sentences] == ["succeeded", "succeeded"]
@@ -247,6 +250,7 @@ def test_audio_generation_falls_back_and_records_segment_usage(db_session, tmp_p
     assert assets[0].provider == "aws_polly_standard"
     assert assets[0].model_id == "standard"
     assert assets[0].tier == "paid"
+    assert assets[0].resource_id is not None
     assert Path(assets[0].object_path).exists()
     assert len(sections) == 1
     assert len(segments) == 2
@@ -405,6 +409,7 @@ def test_generated_assets_upload_to_object_storage_when_configured(db_session, t
     assert asset.byte_size == 123
     assert asset.etag == '"etag-audio"'
     assert asset.checksum_sha256 == "a" * 64
+    assert asset.resource_id is not None
     assert object_storage.calls[0]["source_path"].exists()
     assert object_storage.calls[0]["object_key"] == f"audio/{course.id}/{asset.id}.mp3"
     assert object_storage.calls[0]["content_type"] == "audio/mpeg"

@@ -86,6 +86,29 @@ def test_create_text_course_creates_pending_generation_job(client, db_session, m
     assert job.status == JobStatus.PENDING
 
 
+def test_create_text_course_marks_generation_job_failed_when_enqueue_fails(client, db_session, monkeypatch):
+    def fail_enqueue(course_id, job_id):
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr("app.services.course_service.enqueue_audio_generation", fail_enqueue)
+
+    response = client.post(
+        "/courses",
+        json={
+            "title": "排队失败课程",
+            "source_type": "manual_text",
+            "text": "第一句。",
+        },
+    )
+
+    assert response.status_code == 503
+    course = db_session.query(Course).one()
+    job = db_session.query(GenerationJob).filter(GenerationJob.course_id == course.id).one()
+    assert course.status == CourseStatus.FAILED
+    assert job.status == JobStatus.FAILED
+    assert job.error_code == "queue_unavailable"
+
+
 def test_list_courses_returns_user_courses(client, monkeypatch):
     monkeypatch.setattr(
         "app.services.course_service.enqueue_audio_generation",

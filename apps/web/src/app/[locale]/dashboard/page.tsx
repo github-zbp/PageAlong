@@ -48,7 +48,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         subtitle={dictionary.dashboard.subtitle}
         action={
           <Link
-            className="pa-focus rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white shadow-sm"
+            className="pa-focus rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white shadow-sm"
             href={`/${locale}/import`}
           >
             {dictionary.dashboard.primaryAction}
@@ -64,7 +64,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[1fr_0.72fr]">
         <div>
-          <h2 className="text-base font-semibold text-[#1f1a14]">{dictionary.dashboard.continueTitle}</h2>
+          <h2 className="text-base font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.continueTitle}</h2>
           {continueCourse ? (
             <div className="mt-3">
               <CourseCard
@@ -74,19 +74,37 @@ export default function DashboardPage({ params }: { params: { locale: string } }
               />
             </div>
           ) : (
-            <p className="mt-2 rounded-lg border border-dashed border-[#ddd2c1] bg-[#fffdf8] p-4 text-sm text-[#70685e]">
+            <p className="mt-2 rounded-lg border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 text-sm text-[var(--pa-muted)]">
               {dictionary.dashboard.noProgress}
             </p>
           )}
         </div>
-        <div className="border-t border-[#ddd2c1] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-          <h2 className="text-base font-semibold text-[#1f1a14]">{dictionary.dashboard.nextTitle}</h2>
-          <p className="mt-2 text-sm leading-6 text-[#70685e]">{nextStep}</p>
+        <div className="border-t border-[var(--pa-line)] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+          <h2 className="text-base font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.nextTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--pa-muted)]">{nextStep}</p>
+          <div className="mt-4 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
+            <p className="text-xs font-medium uppercase tracking-normal text-[#8c7e6e]">
+              {dictionary.dashboard.roadmap.eyebrow}
+            </p>
+            <h3 className="mt-2 text-sm font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.roadmap.title}</h3>
+            <p className="mt-2 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.dashboard.roadmap.body}</p>
+            <ul className="mt-3 space-y-3">
+              {dictionary.dashboard.roadmap.items.map((item) => (
+                <li key={item.title} className="flex gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--pa-green)]" />
+                  <div>
+                    <p className="text-sm font-medium text-[var(--pa-ink)]">{item.title}</p>
+                    <p className="mt-1 text-xs leading-5 text-[var(--pa-muted)]">{item.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
       <section className="mt-5">
-        <h2 className="mb-3 text-base font-semibold text-[#1f1a14]">{dictionary.dashboard.recentTitle}</h2>
+        <h2 className="mb-3 text-base font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.recentTitle}</h2>
         {courses.length > 0 ? (
           <div className="space-y-3">
             {courses.slice(0, 5).map((course) => (
@@ -94,7 +112,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-[#ddd2c1] bg-[#fffdf8] p-4 text-sm text-[#70685e]">
+          <div className="rounded-lg border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 text-sm text-[var(--pa-muted)]">
             {dictionary.dashboard.emptyRecent}
           </div>
         )}

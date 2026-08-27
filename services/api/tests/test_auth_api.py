@@ -177,6 +177,53 @@ def test_auth_routes_register_login_me_and_logout(client, db_session, monkeypatc
     assert after_logout_response.status_code == 401
 
 
+def test_auth_routes_manage_theme_preferences(client, db_session, monkeypatch):
+    from app.api.routes import auth
+    from app.models.user import UserPreference
+    from app.services.auth_service import AuthService, InMemoryVerificationCodeStore
+    from app.services.email_delivery import RecordingEmailSender
+
+    sender = RecordingEmailSender()
+    service = AuthService(code_store=InMemoryVerificationCodeStore(), email_sender=sender)
+    monkeypatch.setattr(auth, "get_auth_service", lambda: service)
+
+    code_response = client.post(
+        "/auth/email/code",
+        json={"email": "theme-reader@example.com", "purpose": "register"},
+    )
+    assert code_response.status_code == 204
+    code = sender.messages[-1].code
+
+    register_response = client.post(
+        "/auth/register",
+        json={"email": "theme-reader@example.com", "password": "abc12345", "code": code},
+    )
+    assert register_response.status_code == 201
+    token = register_response.json()["token"]
+    user_id = register_response.json()["user"]["id"]
+
+    current_response = client.get("/auth/me/preferences", headers={"Authorization": f"Bearer {token}"})
+    assert current_response.status_code == 200
+    assert current_response.json() == {"theme_id": "newspaper", "background_color": "white"}
+
+    update_response = client.put(
+        "/auth/me/preferences",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"theme_id": "mist", "background_color": "white"},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json() == {"theme_id": "mist", "background_color": "white"}
+
+    repeat_response = client.get("/auth/me/preferences", headers={"Authorization": f"Bearer {token}"})
+    assert repeat_response.status_code == 200
+    assert repeat_response.json() == {"theme_id": "mist", "background_color": "white"}
+
+    db_session.expire_all()
+    stored_preferences = db_session.query(UserPreference).filter(UserPreference.user_id == user_id).one()
+    assert stored_preferences.theme_id == "mist"
+    assert stored_preferences.background_color == "white"
+
+
 def test_auth_routes_set_session_cookie_on_login_and_use_it_for_me(client, db_session, monkeypatch):
     from app.api.routes import auth
     from app.models.user import User, UserRole, UserStatus

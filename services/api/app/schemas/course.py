@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.pagination import PaginatedList
+
 
 class SentenceRead(BaseModel):
     index: int
@@ -181,8 +183,8 @@ class CourseRead(BaseModel):
     failed_reason: str | None = None
 
 
-class CourseList(BaseModel):
-    items: list[CourseSummaryRead]
+class CourseList(PaginatedList[CourseSummaryRead]):
+    pass
 
 
 class CourseLibraryUpdate(BaseModel):
@@ -206,8 +208,8 @@ class CourseSeriesRead(BaseModel):
     latest_course_id: str | None = None
 
 
-class CourseSeriesList(BaseModel):
-    items: list[CourseSeriesRead]
+class CourseSeriesList(PaginatedList[CourseSeriesRead]):
+    pass
 
 
 class CourseSeriesDetail(CourseSeriesRead):

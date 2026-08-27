@@ -1,5 +1,6 @@
 from app.models.course import ArticleText, Course, CourseStatus, SourceType
-from app.models.generation_job import GenerationJob, JobType
+from app.models.file_resource import FileResource, ResourceKind, ResourceStatus, ResourceVariant
+from app.models.generation_job import GenerationJob, JobTargetType, JobType
 
 
 def test_course_defaults_to_importing_status():
@@ -27,6 +28,24 @@ def test_generation_job_defaults_support_generic_input_payload():
     job = GenerationJob(course_id="course_1", job_type=JobType.URL_IMPORT)
 
     assert job.input_json == "{}"
+    assert job.target_type == JobTargetType.COURSE.value
+    assert job.target_id == "course_1"
+
+
+def test_file_resource_defaults_support_ready_download_metadata():
+    resource = FileResource(
+        user_id="user_1",
+        owner_type="course",
+        owner_id="course_1",
+        resource_kind=ResourceKind.EXPORT,
+        resource_variant=ResourceVariant.PDF,
+        source_fingerprint="abc123",
+    )
+
+    assert resource.status == ResourceStatus.PENDING
+    assert resource.storage_backend == "local"
+    assert resource.filename == ""
+    assert resource.metadata_json == "{}"
 
 
 def test_article_image_asset_defaults_support_import_metadata():
@@ -51,6 +70,7 @@ def test_article_image_asset_defaults_support_import_metadata():
     assert asset.status == "imported"
     assert asset.error_code is None
     assert asset.error_message is None
+    assert asset.resource_id is None
 
 
 def test_tag_models_are_exported_and_courses_expose_tag_relationships():
@@ -89,3 +109,4 @@ def test_file_import_models_default_to_pending():
     assert item.status == FileImportItemStatus.PENDING
     assert item.course_id is None
     assert item.error_code is None
+    assert item.resource_id is None

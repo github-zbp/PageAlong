@@ -2,6 +2,9 @@ import os
 from pathlib import Path
 
 from celery import Celery
+from celery import signals
+
+from app.core.logging import configure_logging
 
 
 def get_project_root() -> Path:
@@ -36,9 +39,16 @@ celery_app = Celery("web_reader_worker", broker=redis_url, backend=redis_url)
 celery_app.conf.update(
     broker_transport_options={"global_keyprefix": redis_key_prefix},
     result_backend_transport_options={"global_keyprefix": redis_key_prefix},
+    worker_hijack_root_logger=False,
 )
+
+
+@signals.setup_logging.connect(weak=False)
+def configure_worker_logging(**kwargs: object) -> None:
+    configure_logging()
 
 # Import task modules so `celery -A app.celery_app worker` registers them on startup.
 import app.tasks.generate_audio  # noqa: E402,F401
 import app.tasks.import_file  # noqa: E402,F401
 import app.tasks.import_url  # noqa: E402,F401
+import app.tasks.run_job  # noqa: E402,F401

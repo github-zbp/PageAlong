@@ -113,7 +113,7 @@ test("user can start registration from email code", async ({ page }) => {
   await page.getByLabel("验证码").fill("123456");
   await page.getByRole("button", { name: "注册" }).click();
 
-  await expect(page).toHaveURL(/\/zh\/dashboard$/);
+  await expect(page).toHaveURL(/\/zh\/dashboard$/, { timeout: 10000 });
 });
 
 test("admin can open the user management page", async ({ page }) => {

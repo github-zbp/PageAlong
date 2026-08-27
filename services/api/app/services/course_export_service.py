@@ -9,7 +9,10 @@ from urllib.parse import urlparse
 
 import httpx
 from docx import Document
+from docx.image.exceptions import UnrecognizedImageError
 from docx.shared import Inches
+from PIL import Image as PILImage
+from PIL import ImageOps
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -27,6 +30,7 @@ from app.models.course import ArticleImageAsset, ArticleText, Course
 IMAGE_MARKDOWN_PATTERN = re.compile(r"^!\[([^\]]*)\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)$")
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$")
 LIST_ITEM_PATTERN = re.compile(r"^[-*+]\s+(.+)$")
+CJK_TEXT_PATTERN = re.compile(r"[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
 
 
 @dataclass(frozen=True)
@@ -98,7 +102,7 @@ class CourseExportService:
             elif kind == "image":
                 image_data = self._image_data(course, block["src"])
                 if image_data is not None:
-                    document.add_picture(BytesIO(image_data), width=Inches(5.8))
+                    self._add_docx_picture(document, image_data)
                 if text:
                     document.add_paragraph(text)
             else:
@@ -142,7 +146,7 @@ class CourseExportService:
             if kind == "heading":
                 story.append(Paragraph(text, heading_style))
             elif kind == "code":
-                story.append(Preformatted(block["text"], code_style))
+                story.append(Preformatted(block["text"], self._pdf_code_style(body_style, block["text"], code_style)))
             elif kind == "image":
                 image_flowable = self._pdf_image(course, block["src"])
                 if image_flowable is not None:
@@ -165,6 +169,44 @@ class CourseExportService:
         )
         document.build(story)
         return output.getvalue()
+
+    def _pdf_code_style(self, body_style: ParagraphStyle, text: str, ascii_style: ParagraphStyle) -> ParagraphStyle:
+        if CJK_TEXT_PATTERN.search(text):
+            return ParagraphStyle(
+                "PageAlongCodeCJK",
+                parent=body_style,
+                fontName="STSong-Light",
+                fontSize=9,
+                leading=12,
+            )
+        return ascii_style
+
+    def _add_docx_picture(self, document: Document, image_data: bytes) -> None:
+        try:
+            document.add_picture(BytesIO(image_data), width=Inches(5.8))
+            return
+        except UnrecognizedImageError:
+            converted_image = self._convert_image_to_png(image_data)
+            if converted_image is None:
+                return
+            try:
+                document.add_picture(BytesIO(converted_image), width=Inches(5.8))
+            except UnrecognizedImageError:
+                return
+
+    def _convert_image_to_png(self, image_data: bytes) -> bytes | None:
+        try:
+            with BytesIO(image_data) as input_buffer:
+                image = PILImage.open(input_buffer)
+                image.load()
+                image = ImageOps.exif_transpose(image)
+                if image.mode not in {"RGB", "RGBA"}:
+                    image = image.convert("RGBA" if "A" in image.getbands() else "RGB")
+                output = BytesIO()
+                image.save(output, format="PNG")
+                return output.getvalue()
+        except Exception:
+            return None
 
     def _pdf_image(self, course: Course, src: str) -> Image | None:
         data = self._image_data(course, src)

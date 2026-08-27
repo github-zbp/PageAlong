@@ -10,7 +10,12 @@ celery_client.conf.update(
 
 
 def enqueue_audio_generation(course_id: str, job_id: str) -> str:
-    result = celery_client.send_task("generate_audio_for_course", args=[course_id, job_id])
+    result = celery_client.send_task("run_generation_job", args=[job_id])
+    return result.id
+
+
+def enqueue_generation_job(job_id: str) -> str:
+    result = celery_client.send_task("run_generation_job", args=[job_id])
     return result.id
 
 

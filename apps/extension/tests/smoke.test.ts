@@ -8,6 +8,7 @@ describe("extension manifest", () => {
     expect(manifest.manifest_version).toBe(3);
     expect(manifest.permissions).toContain("sidePanel");
     expect(manifest.permissions).toContain("tts");
+    expect(manifest.permissions).toContain("cookies");
     expect(manifest.side_panel.default_path).toBe("sidepanel.html");
     expect(manifest.host_permissions).toEqual(["https://web-reader.zbpblog.cn/*"]);
   });

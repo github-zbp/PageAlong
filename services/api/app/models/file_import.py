@@ -84,6 +84,7 @@ class FileImportItem(Base):
     bucket: Mapped[str | None] = mapped_column(String(255), nullable=True)
     object_key: Mapped[str] = mapped_column(String(1024))
     object_path: Mapped[str] = mapped_column(String(2048))
+    resource_id: Mapped[str | None] = mapped_column(ForeignKey("file_resources.id"), nullable=True, index=True)
     error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

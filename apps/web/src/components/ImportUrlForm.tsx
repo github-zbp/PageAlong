@@ -7,6 +7,7 @@ import { formatApproxReadingTime, formatContentCount } from "@/lib/format";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import type { Course } from "@/lib/types";
 import { MarkdownReader } from "./MarkdownReader";
+import { SeriesAutocompleteField } from "./SeriesAutocompleteField";
 
 const ACTIVE_URL_IMPORT_COURSE_KEY = "pagealong.activeUrlImportCourseId";
 
@@ -216,9 +217,9 @@ export function ImportUrlForm({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={submit} className="space-y-3 rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4">
+      <form onSubmit={submit} className="space-y-3 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
         <input
-          className="w-full rounded-md border border-[#ddd2c1] bg-[#fffdf8] px-3 py-2 text-base outline-none focus:border-[#2f6f5e] disabled:bg-[#f3ede2]"
+          className="w-full rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-2 text-base outline-none focus:border-[var(--pa-green)] disabled:bg-[var(--pa-muted-surface)]"
           disabled={isBusy}
           placeholder={dictionary.import.urlPlaceholder}
           value={url}
@@ -226,16 +227,10 @@ export function ImportUrlForm({
           required
           type="url"
         />
-        <input
-          className="w-full rounded-md border border-[#ddd2c1] bg-[#fffdf8] px-3 py-2 text-base outline-none focus:border-[#2f6f5e] disabled:bg-[#f3ede2]"
-          disabled={isBusy}
-          placeholder={dictionary.import.seriesPlaceholder}
-          value={seriesTitle}
-          onChange={(event) => setSeriesTitle(event.target.value)}
-        />
-        {error && phase !== "failed" ? <p className="text-sm text-[#b42318]">{error}</p> : null}
+        <SeriesAutocompleteField dictionary={dictionary} value={seriesTitle} onChange={setSeriesTitle} />
+        {error && phase !== "failed" ? <p className="text-sm text-[var(--pa-error)]">{error}</p> : null}
         <button
-          className="pa-focus rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="pa-focus rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           disabled={isBusy}
           type="submit"
         >
@@ -244,21 +239,21 @@ export function ImportUrlForm({
       </form>
 
       {phase === "extracting" ? (
-        <div className="rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4" role="status">
-          <p className="text-sm font-medium text-[#1f1a14]">{dictionary.import.urlExtractingTitle}</p>
-          <p className="mt-1 text-sm leading-6 text-[#70685e]">{dictionary.import.urlExtractingBody}</p>
+        <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4" role="status">
+          <p className="text-sm font-medium text-[var(--pa-ink)]">{dictionary.import.urlExtractingTitle}</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.import.urlExtractingBody}</p>
         </div>
       ) : null}
 
       {phase === "failed" && course !== null ? (
-        <div className="rounded-lg border border-[#f1b8b3] bg-[#fff1f0] p-4">
+        <div className="rounded-lg border border-[var(--pa-error-soft)] bg-[var(--pa-error-soft)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm font-medium text-[#1f1a14]">{dictionary.detail.failedTitle}</p>
-              {error ? <p className="mt-1 text-sm leading-6 text-[#70685e]">{error}</p> : null}
+              <p className="text-sm font-medium text-[var(--pa-ink)]">{dictionary.detail.failedTitle}</p>
+              {error ? <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{error}</p> : null}
             </div>
             <button
-              className="pa-focus w-full rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white sm:w-auto"
+              className="pa-focus w-full rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white sm:w-auto"
               onClick={retryFailedImport}
               type="button"
             >
@@ -270,22 +265,22 @@ export function ImportUrlForm({
 
       {(phase === "review" || phase === "confirming") && course !== null ? (
         <section className="space-y-3">
-          <div className="rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4">
+          <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-[#1f1a14]">{dictionary.import.urlReviewTitle}</h2>
-                <p className="mt-1 text-sm leading-6 text-[#70685e]">{dictionary.import.urlReviewBody}</p>
-                <p className="mt-2 text-xs text-[#70685e]">
+                <h2 className="text-lg font-semibold text-[var(--pa-ink)]">{dictionary.import.urlReviewTitle}</h2>
+                <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.import.urlReviewBody}</p>
+                <p className="mt-2 text-xs text-[var(--pa-muted)]">
                   {[
                     formatContentCount(course.word_count, course.word_count_unit, locale),
                     `${course.sentences.length} ${dictionary.library.sentences}`,
                     formatApproxReadingTime(course.estimated_reading_seconds, locale)
                   ].filter(Boolean).join(" · ")}
                 </p>
-                {sourceLabel ? <p className="mt-2 text-xs text-[#70685e]">{sourceLabel}</p> : null}
+                {sourceLabel ? <p className="mt-2 text-xs text-[var(--pa-muted)]">{sourceLabel}</p> : null}
               </div>
               <button
-                className="pa-focus w-full rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
+                className="pa-focus w-full rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
                 disabled={phase === "confirming"}
                 onClick={confirmAudioGeneration}
                 type="button"
@@ -295,8 +290,8 @@ export function ImportUrlForm({
             </div>
           </div>
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-[#70685e]">{dictionary.import.urlPreviewTitle}</h3>
-            <div className="max-h-[60vh] overflow-auto rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4">
+            <h3 className="text-sm font-medium text-[var(--pa-muted)]">{dictionary.import.urlPreviewTitle}</h3>
+            <div className="max-h-[60vh] overflow-auto rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
               <MarkdownReader
                 markdown={cleanedMarkdown}
                 sentences={[]}

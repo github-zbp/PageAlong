@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import uuid
 import wave
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -14,10 +15,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.course import ArticleText, AudioAsset, Course, CourseSection, CourseStatus, Sentence
+from app.models.file_resource import ResourceKind, ResourceVariant
 from app.models.generation_job import GenerationJob, JobStatus
 from app.models.tts import TTSSegment
 from app.services.content_metrics import measure_text_content
 from app.services.providers import build_default_segment_providers
+from app.services.file_resource_service import FileResourceService
 from app.services.object_storage import ObjectStorageService, is_s3_compatible_backend
 from app.services.media_compression import MediaCompressionService
 from app.services.tts_limits import enforce_route_metric_limit
@@ -66,6 +69,7 @@ class AudioGenerationService:
         self.provider_mode = provider_mode or settings.tts_provider_mode
         self.segment_providers = self._build_segment_providers(segment_providers)
         self.object_storage = object_storage
+        self.file_resource_service = FileResourceService(db, object_storage=object_storage)
         self.media_compression = media_compression or MediaCompressionService.from_settings()
         self.voice_id = voice_id
         self.speed = speed
@@ -609,10 +613,42 @@ class AudioGenerationService:
         character_count: int,
     ) -> AudioAsset:
         compression = self.media_compression.compress_audio(audio_path)
+        audio_asset_id = str(uuid.uuid4())
+        fingerprint = self.file_resource_service.build_fingerprint(
+            "course-audio",
+            course.id,
+            article_text.content_hash,
+            course.title,
+            route_tier,
+            synthesis.provider_id,
+            synthesis.model_id,
+            synthesis.voice_id,
+            self.speed,
+            compression.format,
+            compression.checksum_sha256,
+        )
+        resource = self.file_resource_service.create_pending_resource(
+            user_id=course.user_id,
+            owner_type="course",
+            owner_id=course.id,
+            resource_kind=ResourceKind.AUDIO,
+            resource_variant=ResourceVariant.AUDIO,
+            title=course.title,
+            filename=f"{course.title}.{compression.format}",
+            source_fingerprint=fingerprint,
+            metadata_json=json.dumps(compression.metadata, ensure_ascii=False),
+        )
+        stored = self.file_resource_service.store_bytes(
+            resource,
+            compression.output_path.read_bytes(),
+            content_type=compression.content_type,
+            object_key=f"audio/{course.id}/{audio_asset_id}.{compression.format}",
+        )
         for asset in course.audio_assets:
             asset.is_current = False
 
         audio_asset = AudioAsset(
+            id=audio_asset_id,
             course_id=course.id,
             article_text_id=article_text.id,
             generation_job_id=job.id,
@@ -622,20 +658,23 @@ class AudioGenerationService:
             voice_id=synthesis.voice_id,
             speed=self.speed,
             format=compression.format,
-            object_path=str(compression.output_path),
-            storage_backend="local",
-            object_key=None,
-            content_type=compression.content_type,
-            byte_size=compression.byte_size,
-            checksum_sha256=compression.checksum_sha256,
+            object_path=stored.stored_object.object_path,
+            storage_backend=stored.stored_object.storage_backend,
+            bucket=stored.stored_object.bucket,
+            object_key=stored.stored_object.object_key,
+            content_type=stored.stored_object.content_type,
+            byte_size=stored.stored_object.byte_size,
+            etag=stored.stored_object.etag,
+            checksum_sha256=stored.stored_object.checksum_sha256,
             metadata_json=json.dumps(compression.metadata, ensure_ascii=False),
             duration_seconds=duration_seconds,
             character_count=character_count,
             is_current=True,
+            resource_id=resource.id,
         )
         self.db.add(audio_asset)
         self.db.flush()
-        self._upload_audio_asset_if_configured(audio_asset, compression.output_path)
+        course.current_audio_resource_id = resource.id
         return audio_asset
 
     def _upload_audio_asset_if_configured(self, audio_asset: AudioAsset, audio_path: Path) -> None:
@@ -771,7 +810,9 @@ class AudioGenerationService:
         course.status = CourseStatus.READY
         course.duration_seconds = duration_seconds
         course.current_audio_asset_id = audio_asset.id
+        course.current_audio_resource_id = audio_asset.resource_id
         job.status = JobStatus.SUCCEEDED
+        job.result_resource_id = audio_asset.resource_id
         job.finished_at = datetime.utcnow()
 
     def _get_job(self, job_id: str) -> GenerationJob:
@@ -822,28 +863,63 @@ class AudioGenerationService:
         synthesis: SynthesisResult,
     ) -> AudioAsset:
         compression = self.media_compression.compress_audio(synthesis.audio_path)
+        audio_asset_id = str(uuid.uuid4())
+        fingerprint = self.file_resource_service.build_fingerprint(
+            "course-audio",
+            course.id,
+            article_text.content_hash,
+            course.title,
+            synthesis.provider,
+            self.voice_id,
+            self.speed,
+            compression.format,
+            compression.checksum_sha256,
+        )
+        resource = self.file_resource_service.create_pending_resource(
+            user_id=course.user_id,
+            owner_type="course",
+            owner_id=course.id,
+            resource_kind=ResourceKind.AUDIO,
+            resource_variant=ResourceVariant.AUDIO,
+            title=course.title,
+            filename=f"{course.title}.{compression.format}",
+            source_fingerprint=fingerprint,
+            metadata_json=json.dumps(compression.metadata, ensure_ascii=False),
+        )
+        stored = self.file_resource_service.store_bytes(
+            resource,
+            compression.output_path.read_bytes(),
+            content_type=compression.content_type,
+            object_key=f"audio/{course.id}/{audio_asset_id}.{compression.format}",
+        )
         for asset in course.audio_assets:
             asset.is_current = False
 
         audio_asset = AudioAsset(
+            id=audio_asset_id,
             course_id=course.id,
             article_text_id=article_text.id,
             provider=synthesis.provider,
             voice_id=self.voice_id,
             speed=self.speed,
             format=compression.format,
-            object_path=str(compression.output_path),
-            content_type=compression.content_type,
-            byte_size=compression.byte_size,
-            checksum_sha256=compression.checksum_sha256,
+            object_path=stored.stored_object.object_path,
+            storage_backend=stored.stored_object.storage_backend,
+            bucket=stored.stored_object.bucket,
+            object_key=stored.stored_object.object_key,
+            content_type=stored.stored_object.content_type,
+            byte_size=stored.stored_object.byte_size,
+            etag=stored.stored_object.etag,
+            checksum_sha256=stored.stored_object.checksum_sha256,
             metadata_json=json.dumps(compression.metadata, ensure_ascii=False),
             duration_seconds=synthesis.duration_seconds,
             character_count=synthesis.character_count,
             is_current=True,
+            resource_id=resource.id,
         )
         self.db.add(audio_asset)
         self.db.flush()
-        self._upload_audio_asset_if_configured(audio_asset, compression.output_path)
+        course.current_audio_resource_id = resource.id
         return audio_asset
 
     def _write_sentence_timeline(
@@ -870,7 +946,9 @@ class AudioGenerationService:
         course.status = CourseStatus.READY
         course.duration_seconds = synthesis.duration_seconds
         course.current_audio_asset_id = audio_asset.id
+        course.current_audio_resource_id = audio_asset.resource_id
         job.status = JobStatus.SUCCEEDED
+        job.result_resource_id = audio_asset.resource_id
         job.finished_at = datetime.utcnow()
 
     def _mark_failed(self, job_id: str, message: str) -> None:

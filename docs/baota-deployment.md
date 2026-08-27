@@ -262,6 +262,22 @@ scripts/prod-apps.sh build-web
 ```
 
 看到 `.next/BUILD_ID` 输出即表示构建完成。
+`build-web` 现在会跳过 Next 的内建类型和 lint 检查；需要检查时单独运行 `npm run typecheck`。脚本默认给 `next build` 加上 `NODE_OPTIONS=--max-old-space-size=256` 和 `NEXT_BUILD_CPUS=1`，用来降低低内存服务器上的 OOM 风险；如需调整，可在执行前设置 `WEB_BUILD_NODE_OPTIONS` 或 `WEB_BUILD_CPUS`。
+
+如果构建停在 `Creating an optimized production build ...` 后显示 `Killed`，通常表示线上服务器或面板把 Next.js 构建进程用 `SIGKILL` 终止了。可以先在服务器确认：
+
+```bash
+free -h
+dmesg -T | grep -Ei 'killed process|out of memory|oom'
+```
+
+内存允许时可以适当提高 V8 heap，例如：
+
+```bash
+WEB_BUILD_NODE_OPTIONS='--max-old-space-size=384' scripts/prod-apps.sh build-web
+```
+
+如果服务器总内存不足，需要先增加 swap，或在内存更大的机器上完成 Web 构建后再同步产物。
 
 如果修改了 `NEXT_PUBLIC_API_BASE_URL`，必须重新执行：
 
@@ -283,6 +299,8 @@ scripts/prod-apps.sh restart
 scripts/prod-apps.sh status
 ```
 
+`prod-apps.sh stop` 和 `prod-apps.sh start` 会清理工作目录属于 `PROJECT_ROOT/services/worker` 的历史 Celery worker 进程，避免多次启动后残留的 worker 持续占用内存。清理逻辑只匹配本项目 worker 目录，不处理其他项目的同名 Celery 进程。
+
 本机验证：
 
 ```bash
@@ -303,6 +321,8 @@ scripts/prod-apps.sh logs api
 scripts/prod-apps.sh logs worker
 scripts/prod-apps.sh logs web
 ```
+
+其中 `api` 和 `worker` 会直接读取 `services/api/storage/logs/api.log` 与 `services/worker/storage/logs/worker.log`。
 
 进入 tmux 会话：
 
@@ -592,4 +612,3 @@ make up
 ```
 
 该操作会停止并重建容器，但不会删除外部数据卷。
-

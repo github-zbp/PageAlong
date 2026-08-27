@@ -19,6 +19,7 @@ from app.models.file_import import (
     FileImportItemStatus,
     FileImportSourceMode,
 )
+from app.models.file_resource import ResourceKind, ResourceVariant
 from app.services.course_service import create_import_placeholder_course, persist_article_content
 from app.services.course_export_service import safe_filename
 from app.services.file_import_extraction import (
@@ -28,6 +29,7 @@ from app.services.file_import_extraction import (
     extract_file_content,
     file_extension,
 )
+from app.services.file_resource_service import FileResourceService
 from app.services.object_storage import ObjectStorageService
 
 
@@ -76,8 +78,9 @@ class FileImportService:
         self.db.flush()
 
         storage = ObjectStorageService.from_file_import_settings()
+        resource_service = FileResourceService(self.db, object_storage=storage)
         for upload in uploads:
-            item = self._build_item_for_upload(batch, upload, storage)
+            item = self._build_item_for_upload(batch, upload, storage, resource_service)
             self.db.add(item)
 
         self.db.flush()
@@ -91,6 +94,7 @@ class FileImportService:
         if item.status in {FileImportItemStatus.SUCCEEDED, FileImportItemStatus.FAILED}:
             return FileImportResult(item.id, item.batch_id, item.course_id, item.status.value)
 
+        resource_service = FileResourceService(self.db)
         item.status = FileImportItemStatus.RUNNING
         item.started_at = datetime.utcnow()
         item.batch.status = FileImportBatchStatus.RUNNING
@@ -145,6 +149,44 @@ class FileImportService:
                 confirmed_by_user=True,
                 course_status=CourseStatus.TEXT_READY,
             )
+            if item.resource_id is None:
+                resource = resource_service.register_existing_resource(
+                    user_id=item.user_id,
+                    owner_type="file_import_item",
+                    owner_id=item.id,
+                    resource_kind=ResourceKind.IMPORT,
+                    resource_variant=ResourceVariant.FILE,
+                    storage_backend=item.storage_backend,
+                    bucket=item.bucket,
+                    object_key=item.object_key,
+                    object_path=item.object_path,
+                    content_type=item.content_type,
+                    byte_size=item.byte_size,
+                    title=item.original_filename,
+                    filename=item.original_filename,
+                    source_fingerprint=resource_service.build_fingerprint(
+                        "file-import-existing",
+                        item.batch_id,
+                        item.id,
+                        item.original_filename,
+                        item.relative_path,
+                        item.storage_backend,
+                        item.object_key,
+                        item.object_path,
+                        item.content_type,
+                        item.byte_size,
+                    ),
+                    metadata_json=json.dumps(
+                        {
+                            "batch_id": item.batch_id,
+                            "relative_path": item.relative_path,
+                            "file_extension": item.file_extension,
+                            "legacy_import": True,
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
+                item.resource_id = resource.id
             item.course_id = course.id
             item.status = FileImportItemStatus.SUCCEEDED
             item.error_code = None
@@ -214,6 +256,7 @@ class FileImportService:
         batch: FileImportBatch,
         upload: FileImportUploadInput,
         storage: ObjectStorageService,
+        resource_service: FileResourceService,
     ) -> FileImportItem:
         original_filename = filename_basename(upload.filename)
         extension = file_extension(original_filename)
@@ -248,15 +291,44 @@ class FileImportService:
             item.finished_at = datetime.utcnow()
             return item
 
-        stored = storage.upload_bytes(
-            upload.data,
-            object_key=f"file-imports/{batch.id}/{item.id}/{safe_filename(original_filename)}",
-            content_type=item.content_type,
+        resource = resource_service.create_pending_resource(
+            user_id=batch.user_id,
+            owner_type="file_import_item",
+            owner_id=item.id,
+            resource_kind=ResourceKind.IMPORT,
+            resource_variant=ResourceVariant.FILE,
+            title=original_filename,
+            filename=original_filename,
+            source_fingerprint=resource_service.build_fingerprint(
+                "file-import",
+                batch.id,
+                item.id,
+                original_filename,
+                relative_path,
+                upload.content_type,
+                byte_size,
+            ),
+            metadata_json=json.dumps(
+                {
+                    "batch_id": batch.id,
+                    "relative_path": relative_path,
+                    "file_extension": extension,
+                },
+                ensure_ascii=False,
+            ),
         )
-        item.storage_backend = stored.storage_backend
-        item.bucket = stored.bucket
-        item.object_key = stored.object_key
-        item.object_path = stored.object_path
+        stored = resource_service.store_bytes(
+            resource,
+            upload.data,
+            content_type=item.content_type,
+            object_key=f"file-imports/{batch.id}/{item.id}/{safe_filename(original_filename)}",
+        )
+        stored_object = stored.stored_object
+        item.storage_backend = stored_object.storage_backend
+        item.bucket = stored_object.bucket
+        item.object_key = stored_object.object_key
+        item.object_path = stored_object.object_path
+        item.resource_id = resource.id
         return item
 
     def _mark_failed(self, item_id: str, code: str, message: str) -> FileImportResult:

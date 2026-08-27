@@ -47,6 +47,7 @@ def test_import_article_images_rewrites_markdown_to_uploaded_urls(db_session):
     assert asset.content_type == "image/webp"
     assert asset.byte_size == len(object_storage.calls[0]["content"])
     assert len(asset.checksum_sha256) == 64
+    assert asset.resource_id is not None
     assert json.loads(asset.metadata_json)["compression"]["status"] == "compressed"
     assert object_storage.calls[0]["object_key"] == asset.object_key
     assert object_storage.calls[0]["content_type"] == "image/webp"
@@ -138,6 +139,7 @@ def test_import_article_images_uses_course_image_route_for_local_storage(db_sess
     assert result.rewritten_markdown == f"![本地图](/courses/{course.id}/images/{asset.id})"
     assert asset.object_path == "/tmp/pagealong-local-image.png"
     assert asset.content_type == "image/webp"
+    assert asset.resource_id is not None
     assert json.loads(asset.metadata_json)["compression"]["status"] == "compressed"
 
 

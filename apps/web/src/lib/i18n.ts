@@ -18,6 +18,17 @@ export const dictionaries = {
   zh: {
     brand: "页相随",
     brandSubtitle: "把读不完的内容，变成一路相随的课程",
+    common: {
+      close: "关闭"
+    },
+    pagination: {
+      previous: "上一页",
+      next: "下一页",
+      first: "首页",
+      last: "末页",
+      pageSummary: "第 {page} 页 / 共 {totalPages} 页",
+      resultSummary: "显示 {start}-{end} / 共 {total} 条"
+    },
     nav: {
       dashboard: "工作台",
       myCourses: "我的课程",
@@ -25,10 +36,37 @@ export const dictionaries = {
       fragmentedCourses: "课程库",
       courseImport: "课程导入",
       tagManagement: "标签管理",
-      importTasks: "导入任务",
+      downloadTasks: "下载任务",
+      feedback: "反馈",
       settings: "设置",
       account: "账号",
       admin: "管理员"
+    },
+    feedback: {
+      title: "反馈建议",
+      description: "建议、Bug 和新功能都可以直接在这里提交。系统会自动带上当前账号邮箱，方便我们回看上下文。",
+      sidebarHint: "建议 / Bug / 新功能",
+      categoryLabel: "反馈类型",
+      categories: {
+        suggestion: "建议",
+        bug: "Bug",
+        feature: "新功能"
+      },
+      summaryLabel: "标题",
+      summaryPlaceholder: "用一句话概括你想说的内容",
+      messageLabel: "详细说明",
+      messagePlaceholder: "说清问题现象、期望结果或补充想法",
+      emailLabel: "当前账号",
+      pageLabel: "当前页面",
+      note: "提交后会发送到 juhuatang@outlook.com",
+      submit: "发送反馈",
+      submitting: "发送中",
+      success: "已发送到管理员邮箱。",
+      error: "发送失败，请稍后重试。"
+    },
+    shell: {
+      collapseSidebar: "收起侧边栏",
+      expandSidebar: "展开侧边栏"
     },
     search: {
       placeholder: "搜索课程"
@@ -98,7 +136,26 @@ export const dictionaries = {
       textReadyNext: "已有文本课程准备好。音频生成能力接通后，可以在导入任务里查看进度。",
       progressNext: "有课程保存了播放进度，可以从上次位置继续。",
       emptyRecent: "还没有课程。先从课程导入开始。",
-      noProgress: "暂无保存进度的课程。"
+      noProgress: "暂无保存进度的课程。",
+      roadmap: {
+        eyebrow: "后续计划",
+        title: "接下来会补上的功能",
+        body: "这些能力会按稳定性优先级逐步推出，也包括 OCR 和真实 TTS 接入。",
+        items: [
+          {
+            title: "网页导入完善版",
+            body: "让抓取、清洗和确认流程更稳定。"
+          },
+          {
+            title: "文件上传导入",
+            body: "支持 PDF、Word、EPUB 和 TXT。"
+          },
+          {
+            title: "浏览器剪藏",
+            body: "从当前网页快速保存到课程库。"
+          }
+        ]
+      }
     },
     library: {
       title: "课程库",
@@ -106,6 +163,7 @@ export const dictionaries = {
       empty: "还没有课程。先导入一段内容。",
       emptySearch: "没有找到匹配的课程。",
       open: "打开",
+      moreActions: "更多操作",
       delete: "删除",
       words: "字",
       sentences: "句",
@@ -117,7 +175,12 @@ export const dictionaries = {
       lastReadAt: "最近阅读",
       neverRead: "未阅读",
       star: "星标",
-      unstar: "取消星标"
+      unstar: "取消星标",
+      selected: "已选",
+      clearSelection: "取消选择",
+      deleteSelected: "删除所选",
+      unstarSelected: "取消星标",
+      moveToSeries: "转移至"
     },
     import: {
       title: "课程导入",
@@ -125,6 +188,7 @@ export const dictionaries = {
       taskList: "导入任务",
       titlePlaceholder: "课程标题",
       seriesPlaceholder: "系列名称（选填）",
+      seriesHelper: "输入已有系列会自动匹配；也可以输入新名称创建系列。",
       textPlaceholder: "粘贴文章、课程笔记或文档正文",
       tabsLabel: "导入方式",
       textIntro: "粘贴正文后创建课程，并进入音频生成流程。",
@@ -183,36 +247,104 @@ export const dictionaries = {
       loginRedirect: "需要登录后同步。"
     },
     jobs: {
-      title: "导入任务",
-      subtitle: "查看课程导入和音频生成相关任务状态。",
-      emptyTitle: "任务列表接口尚未接入",
-      emptyBody: "当前后端已经接入 Redis/Celery 音频生成闭环，但还没有任务列表 API。后续这里会显示等待、处理中、完成和失败任务。"
+      title: "下载任务",
+      subtitle: "查看课程下载、音频生成和文件导出任务状态。",
+      emptyTitle: "还没有下载任务",
+      emptyBody: "第一次下载会先进入后台生成。完成后可以直接点开下载链接，失败任务可查看失败原因。",
+      loadError: "下载任务加载失败，请稍后重试。",
+      download: "下载",
+      failureReason: "失败原因",
+      failureReasonTitle: "失败原因",
+      createdAt: "创建于",
+      updatedAt: "更新于",
+      completed: "已完成",
+      audioGeneration: "生成音频",
+      generating: "生成中",
+      waiting: "等待中"
     },
     series: {
       title: "系列课程",
       subtitle: "用于组织有连续学习路径的课程集合。",
+      search: "搜索系列",
+      newSeries: "新建系列",
+      save: "保存系列",
+      cancel: "取消",
+      editTitle: "编辑系列",
+      createTitle: "新建系列",
+      nameLabel: "系列标题",
+      nameRequired: "请输入系列标题。",
+      saveError: "保存系列失败。",
+      select: "选择",
+      read: "阅读",
+      clearCourses: "清空课程",
+      delete: "删除系列",
+      deleteSelected: "删除所选",
+      selectedCount: "已选",
+      batchDeleteBlocked: "所选系列中包含课程，请先清空后再删除。",
       emptyTitle: "还没有系列课程",
-      emptyBody: "导入文本时填写系列名称后，课程会出现在这里。",
+      emptyBody: "导入文本或网页时选择系列后，课程会出现在这里。",
       articles: "篇文章",
-      moveToFragments: "移入碎片课程",
-      open: "打开系列"
+      moveToFragments: "清空课程",
+      open: "查看"
     },
     tags: {
       title: "标签管理",
       subtitle: "维护课程标签，用于后续筛选和整理。",
-      emptyTitle: "标签管理尚未接入",
-      emptyBody: "当前版本还没有标签 API。后续这里会支持创建标签、调整标签和按标签筛选课程。"
+      search: "搜索标签",
+      newTag: "新建标签",
+      save: "保存标签",
+      delete: "删除标签",
+      nameLabel: "标签名称",
+      colorLabel: "标签颜色",
+      usageCount: "次使用",
+      updatedAt: "更新时间",
+      createTitle: "新建标签",
+      createBody: "输入名称后保存，即可创建一个新标签。",
+      editTitle: "编辑标签",
+      emptyTitle: "还没有标签",
+      emptyBody: "先新建一个标签，再把它绑定到课程上。",
+      emptySelectionBody: "选择一个标签查看和编辑，或点击新建标签。",
+      nameRequired: "请输入标签名称。",
+      saveError: "保存标签失败。",
+      deleteError: "删除标签失败。"
     },
     settings: {
       title: "设置",
-      subtitle: "管理语言和后续播放偏好。",
+      subtitle: "管理语言、后台配色和背景色。",
       language: "界面语言",
-      current: "当前语言"
+      current: "当前语言",
+      theme: "后台配色",
+      background: "背景色",
+      save: "保存设置",
+      saving: "保存中",
+      saved: "已保存",
+      saveError: "保存失败，请重试。",
+      backgroundLocked: "当前仅开放白色",
+      themes: {
+        newspaper: "报纸白底",
+        forest: "青林静绿",
+        mist: "晨雾蓝灰",
+        amber: "台灯琥珀",
+        night: "夜航墨黑"
+      }
     },
     detail: {
-      breadcrumb: "课程库",
       loadingCourse: "正在加载课程",
       loadError: "课程加载失败，请稍后重试。",
+      tagsTitle: "课程标签",
+      tagsSubtitle: "绑定普通标签。系列标签会自动继承，不在这里编辑。",
+      tagSearchPlaceholder: "搜索或输入标签",
+      addTag: "添加标签",
+      createTag: "新建标签",
+      removeTag: "移除",
+      noTags: "暂无普通标签",
+      manageTags: "添加/删除标签",
+      transferToSeries: "转移至",
+      transferSeriesPlaceholder: "搜索或输入系列",
+      transferSeriesHelper: "选择已有系列，或输入新标题创建一个系列后转移。",
+      noSeriesMatch: "没有匹配的系列。",
+      openOriginalPage: "在新标签打开原网页",
+      moreActions: "更多设置",
       reviewTitle: "正文待确认",
       reviewBody: "这篇 URL 课程已完成抓取和清洗。确认正文后才会开始生成音频。",
       confirmGenerate: "确认并生成音频",
@@ -228,18 +360,20 @@ export const dictionaries = {
       lazyPlayBlocked: "浏览器阻止了自动播放，请再点一次播放。",
       playRequestError: "无法开始生成音频，请稍后重试。",
       backToLibrary: "返回课程库",
-      viewJobs: "查看导入任务"
+      viewJobs: "查看下载任务"
     },
     downloads: {
       title: "下载",
-      markdown: "下载 Markdown",
-      word: "下载 Word",
-      pdf: "下载 PDF",
+      markdown: "下载为Markdown",
+      word: "下载为Word",
+      pdf: "下载为PDF",
       audio: "下载音频",
       markdownShort: "Markdown",
       wordShort: "Word",
       pdfShort: "PDF",
       audioShort: "音频",
+      queuedNotice: "文件已开始生成，可以到下载任务列表查看文件生成和下载进度。",
+      viewTasks: "查看下载任务",
       error: "下载失败，请稍后重试。"
     },
     reading: {
@@ -251,6 +385,9 @@ export const dictionaries = {
       closeArticleList: "关闭文章列表",
       collapseArticleList: "折叠文章列表",
       expandArticleList: "展开文章列表",
+      exitReading: "退出阅读",
+      fullscreen: "全屏阅读",
+      exitFullscreen: "退出全屏",
       readerPreferences: "阅读偏好",
       smallFont: "小字号",
       standardFont: "标准字号",
@@ -283,6 +420,17 @@ export const dictionaries = {
   en: {
     brand: "PageAlong",
     brandSubtitle: "Turn long reads into courses that follow along.",
+    common: {
+      close: "Close"
+    },
+    pagination: {
+      previous: "Previous",
+      next: "Next",
+      first: "First",
+      last: "Last",
+      pageSummary: "Page {page} of {totalPages}",
+      resultSummary: "{start}-{end} of {total}"
+    },
     nav: {
       dashboard: "Dashboard",
       myCourses: "My courses",
@@ -290,10 +438,37 @@ export const dictionaries = {
       fragmentedCourses: "Library",
       courseImport: "Course import",
       tagManagement: "Tag management",
-      importTasks: "Import tasks",
+      downloadTasks: "Download tasks",
+      feedback: "Feedback",
       settings: "Settings",
       account: "Account",
       admin: "Admin"
+    },
+    feedback: {
+      title: "Share feedback",
+      description: "Suggestions, bugs, and feature ideas can all be submitted here. Your signed-in account email is attached automatically for context.",
+      sidebarHint: "Suggestions / bugs / features",
+      categoryLabel: "Feedback type",
+      categories: {
+        suggestion: "Suggestion",
+        bug: "Bug",
+        feature: "Feature"
+      },
+      summaryLabel: "Title",
+      summaryPlaceholder: "Summarize what you want to share",
+      messageLabel: "Details",
+      messagePlaceholder: "Describe the issue, expectation, or idea in a bit more detail",
+      emailLabel: "Current account",
+      pageLabel: "Current page",
+      note: "Submitted feedback will go to juhuatang@outlook.com",
+      submit: "Send feedback",
+      submitting: "Sending",
+      success: "Sent to the admin mailbox.",
+      error: "Feedback could not be sent. Please try again later."
+    },
+    shell: {
+      collapseSidebar: "Collapse sidebar",
+      expandSidebar: "Expand sidebar"
     },
     search: {
       placeholder: "Search courses"
@@ -363,7 +538,26 @@ export const dictionaries = {
       textReadyNext: "Text courses are ready. Once audio generation is connected, import tasks will show progress.",
       progressNext: "Some courses have saved progress. Continue from where you left off.",
       emptyRecent: "No courses yet. Start with course import.",
-      noProgress: "No saved playback progress yet."
+      noProgress: "No saved playback progress yet.",
+      roadmap: {
+        eyebrow: "Coming soon",
+        title: "Features we are still building",
+        body: "These will roll out in stages, along with OCR and real TTS integration.",
+        items: [
+          {
+            title: "Improved URL import",
+            body: "More stable extraction and cleanup."
+          },
+          {
+            title: "File upload import",
+            body: "PDF, Word, EPUB, and TXT support."
+          },
+          {
+            title: "Browser clipping",
+            body: "Save the current page into your library faster."
+          }
+        ]
+      }
     },
     library: {
       title: "Library",
@@ -371,6 +565,7 @@ export const dictionaries = {
       empty: "No courses yet. Import content first.",
       emptySearch: "No matching courses found.",
       open: "Open",
+      moreActions: "More actions",
       delete: "Delete",
       words: "words",
       sentences: "sentences",
@@ -382,7 +577,12 @@ export const dictionaries = {
       lastReadAt: "Last read",
       neverRead: "Not read",
       star: "Star",
-      unstar: "Unstar"
+      unstar: "Unstar",
+      selected: "Selected",
+      clearSelection: "Clear selection",
+      deleteSelected: "Delete selected",
+      unstarSelected: "Unstar",
+      moveToSeries: "Move to"
     },
     import: {
       title: "Course import",
@@ -390,6 +590,7 @@ export const dictionaries = {
       taskList: "Import tasks",
       titlePlaceholder: "Course title",
       seriesPlaceholder: "Series name (optional)",
+      seriesHelper: "Pick an existing series or type a new title to create one.",
       textPlaceholder: "Paste an article, course note, or document body",
       tabsLabel: "Import method",
       textIntro: "Paste the body text to create a course and start audio generation.",
@@ -448,36 +649,104 @@ export const dictionaries = {
       loginRedirect: "Sign in to sync this page."
     },
     jobs: {
-      title: "Import tasks",
-      subtitle: "Track course import and audio generation task status.",
-      emptyTitle: "The jobs list API is not connected yet",
-      emptyBody: "The backend has Redis/Celery audio generation wiring, but no task-list API yet. This page will later show waiting, running, completed, and failed jobs."
+      title: "Download tasks",
+      subtitle: "Track course download, audio generation, and file export tasks.",
+      emptyTitle: "No download tasks yet",
+      emptyBody: "The first download starts a background job. When it finishes, use the direct download link; failed tasks show the reason.",
+      loadError: "Could not load download tasks. Try again later.",
+      download: "Download",
+      failureReason: "Failure reason",
+      failureReasonTitle: "Failure reason",
+      createdAt: "Created at",
+      updatedAt: "Updated at",
+      completed: "Completed",
+      audioGeneration: "Generate audio",
+      generating: "Generating",
+      waiting: "Waiting"
     },
     series: {
       title: "Series courses",
       subtitle: "Organize courses into continuous learning paths.",
+      search: "Search series",
+      newSeries: "New series",
+      save: "Save series",
+      cancel: "Cancel",
+      editTitle: "Edit series",
+      createTitle: "New series",
+      nameLabel: "Series title",
+      nameRequired: "Enter a series title.",
+      saveError: "Could not save the series.",
+      select: "Select",
+      read: "Read",
+      clearCourses: "Clear courses",
+      delete: "Delete series",
+      deleteSelected: "Delete selected",
+      selectedCount: "selected",
+      batchDeleteBlocked: "One or more selected series still have courses. Clear them first.",
       emptyTitle: "No series courses yet",
-      emptyBody: "Enter a series name during text import and its courses will appear here.",
+      emptyBody: "Pick a series during import and its courses will appear here.",
       articles: "articles",
       moveToFragments: "Move to fragments",
-      open: "Open series"
+      open: "View"
     },
     tags: {
       title: "Tag management",
       subtitle: "Maintain course tags for later filtering and organization.",
-      emptyTitle: "Tag management is not connected yet",
-      emptyBody: "There is no tags API in this version. Later this area will support creating, editing, and filtering by tags."
+      search: "Search tags",
+      newTag: "New tag",
+      save: "Save tag",
+      delete: "Delete tag",
+      nameLabel: "Tag name",
+      colorLabel: "Tag color",
+      usageCount: "uses",
+      updatedAt: "Updated",
+      createTitle: "New tag",
+      createBody: "Enter a name and save to create a new tag.",
+      editTitle: "Edit tag",
+      emptyTitle: "No tags yet",
+      emptyBody: "Create a tag first, then bind it to a course.",
+      emptySelectionBody: "Select a tag to edit it, or create a new one.",
+      nameRequired: "Enter a tag name.",
+      saveError: "Could not save the tag.",
+      deleteError: "Could not delete the tag."
     },
     settings: {
       title: "Settings",
-      subtitle: "Manage language and future playback preferences.",
+      subtitle: "Manage language, backend theme, and background color.",
       language: "Interface language",
-      current: "Current language"
+      current: "Current language",
+      theme: "Backend theme",
+      background: "Background color",
+      save: "Save settings",
+      saving: "Saving",
+      saved: "Saved",
+      saveError: "Could not save settings. Try again.",
+      backgroundLocked: "Only white is available right now",
+      themes: {
+        newspaper: "Newspaper White",
+        forest: "Forest Green",
+        mist: "Mist Blue",
+        amber: "Amber Desk",
+        night: "Night Black"
+      }
     },
     detail: {
-      breadcrumb: "Library",
       loadingCourse: "Loading course",
       loadError: "Could not load this course. Try again later.",
+      tagsTitle: "Course tags",
+      tagsSubtitle: "Bind ordinary tags here. Series tags are inherited automatically and are not edited here.",
+      tagSearchPlaceholder: "Search or add a tag",
+      addTag: "Add tag",
+      createTag: "New tag",
+      removeTag: "Remove",
+      noTags: "No ordinary tags yet",
+      manageTags: "Add / remove tags",
+      transferToSeries: "Move to",
+      transferSeriesPlaceholder: "Search or type a series",
+      transferSeriesHelper: "Pick an existing series, or type a new title to create one and move the course.",
+      noSeriesMatch: "No matching series.",
+      openOriginalPage: "Open original page in a new tab",
+      moreActions: "More actions",
       reviewTitle: "Content needs review",
       reviewBody: "This URL course has been extracted and cleaned. Confirm the body before audio generation starts.",
       confirmGenerate: "Confirm and generate audio",
@@ -493,18 +762,20 @@ export const dictionaries = {
       lazyPlayBlocked: "The browser blocked autoplay. Tap play again.",
       playRequestError: "Could not start audio generation. Try again later.",
       backToLibrary: "Back to library",
-      viewJobs: "View import tasks"
+      viewJobs: "View download tasks"
     },
     downloads: {
       title: "Downloads",
-      markdown: "Download Markdown",
-      word: "Download Word",
-      pdf: "Download PDF",
+      markdown: "Download as Markdown",
+      word: "Download as Word",
+      pdf: "Download as PDF",
       audio: "Download audio",
       markdownShort: "Markdown",
       wordShort: "Word",
       pdfShort: "PDF",
       audioShort: "Audio",
+      queuedNotice: "The file is being generated. Open the download tasks page to track progress.",
+      viewTasks: "View download tasks",
       error: "Download failed. Try again later."
     },
     reading: {
@@ -516,6 +787,9 @@ export const dictionaries = {
       closeArticleList: "Close article list",
       collapseArticleList: "Collapse article list",
       expandArticleList: "Expand article list",
+      exitReading: "Exit reading",
+      fullscreen: "Fullscreen",
+      exitFullscreen: "Exit fullscreen",
       readerPreferences: "Reader preferences",
       smallFont: "Small text",
       standardFont: "Standard text",

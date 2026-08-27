@@ -9,6 +9,7 @@ export type ReaderPreferences = {
 };
 
 const STORAGE_KEY = "pagealong.reader.preferences";
+export const READER_PREFERENCES_UPDATED_EVENT = "pagealong:reader-preferences-updated";
 
 export const defaultReaderPreferences: ReaderPreferences = {
   fontSize: "standard",
@@ -61,6 +62,7 @@ export function writeReaderPreferences(preferences: ReaderPreferences): void {
     return;
   }
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizePreferences(preferences)));
+  window.dispatchEvent(new Event(READER_PREFERENCES_UPDATED_EVENT));
 }
 
 export function updateReaderPreferences(partial: Partial<ReaderPreferences>): ReaderPreferences {

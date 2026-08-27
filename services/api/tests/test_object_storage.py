@@ -98,3 +98,50 @@ def test_local_object_storage_can_round_trip_raw_bytes(tmp_path):
     stored = service.upload_bytes(b"raw-bytes", object_key="imports/a.txt", content_type="text/plain")
 
     assert service.download_bytes(stored.object_path) == b"raw-bytes"
+
+
+def test_s3_compatible_delete_uses_bucket_and_key(tmp_path):
+    from app.services.object_storage import ObjectStorageService
+
+    captured = {}
+
+    class FakeS3Client:
+        def delete_object(self, **kwargs):
+            captured.update(kwargs)
+
+    service = ObjectStorageService(
+        backend="r2",
+        bucket="pagealong-media",
+        endpoint_url="https://account.r2.cloudflarestorage.com",
+        access_key_id="access",
+        secret_access_key="secret",
+        public_base_url="https://media.pagealong.com/assets",
+        local_root=tmp_path / "local",
+        client_factory=lambda: FakeS3Client(),
+    )
+
+    service.delete_object("audio/course_1/audio_1.wav")
+
+    assert captured == {"Bucket": "pagealong-media", "Key": "audio/course_1/audio_1.wav"}
+
+
+def test_local_delete_removes_file(tmp_path):
+    from app.services.object_storage import ObjectStorageService
+
+    source = tmp_path / "media" / "audio" / "course_1" / "audio_1.wav"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"audio-bytes")
+
+    service = ObjectStorageService(
+        backend="local",
+        bucket="local",
+        endpoint_url="",
+        access_key_id="",
+        secret_access_key="",
+        public_base_url="",
+        local_root=tmp_path / "media",
+    )
+
+    service.delete_object("audio/course_1/audio_1.wav")
+
+    assert not source.exists()

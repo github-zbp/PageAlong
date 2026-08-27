@@ -9,7 +9,8 @@ from app.models.course import (
     Sentence,
     SourceType,
 )
-from app.models.generation_job import GenerationJob, JobStatus, JobType
+from app.models.file_resource import FileResource, ResourceKind, ResourceStatus, ResourceVariant
+from app.models.generation_job import GenerationJob, JobStatus, JobTargetType, JobType
 from app.models.file_import import (
     FileImportBatch,
     FileImportBatchStatus,
@@ -20,7 +21,7 @@ from app.models.file_import import (
 from app.models.playback_progress import PlaybackProgress
 from app.models.tag import CourseTag, Tag
 from app.models.tts import TTSSegment, TTSQuotaPeriod, TTSUsageEvent
-from app.models.user import AuthEvent, AuthEventType, AuthSession, User, UserRole, UserStatus
+from app.models.user import AuthEvent, AuthEventType, AuthSession, User, UserPreference, UserRole, UserStatus
 
 __all__ = [
     "ArticleText",
@@ -38,9 +39,14 @@ __all__ = [
     "FileImportItem",
     "FileImportItemStatus",
     "FileImportSourceMode",
+    "FileResource",
     "GenerationJob",
     "JobStatus",
+    "JobTargetType",
     "JobType",
+    "ResourceKind",
+    "ResourceStatus",
+    "ResourceVariant",
     "PlaybackProgress",
     "Tag",
     "Sentence",
@@ -49,6 +55,7 @@ __all__ = [
     "TTSQuotaPeriod",
     "TTSUsageEvent",
     "User",
+    "UserPreference",
     "UserRole",
     "UserStatus",
 ]

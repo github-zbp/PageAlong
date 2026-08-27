@@ -17,7 +17,9 @@ from app.schemas.auth import (
     RegisterRequest,
     UserRead,
 )
+from app.schemas.preferences import ThemePreferencesRead, ThemePreferencesUpdate
 from app.services.auth_service import AuthError, AuthService
+from app.services.user_preferences_service import get_or_create_user_preferences, update_user_preferences
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,6 +43,13 @@ def serialize_user(user: User) -> UserRead:
 
 def auth_response(result) -> AuthResponse:
     return AuthResponse(token=result.token, user=serialize_user(result.user))
+
+
+def serialize_theme_preferences(preferences) -> ThemePreferencesRead:
+    return ThemePreferencesRead(
+        theme_id=preferences.theme_id,
+        background_color=preferences.background_color,
+    )
 
 
 def client_ip(request: Request) -> str:
@@ -132,6 +141,30 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(get_current_user)) -> UserRead:
     return serialize_user(current_user)
+
+
+@router.get("/me/preferences", response_model=ThemePreferencesRead)
+def me_preferences(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> ThemePreferencesRead:
+    preferences = get_or_create_user_preferences(db, current_user)
+    return serialize_theme_preferences(preferences)
+
+
+@router.put("/me/preferences", response_model=ThemePreferencesRead)
+def update_me_preferences(
+    payload: ThemePreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ThemePreferencesRead:
+    try:
+        preferences = update_user_preferences(
+            db,
+            current_user,
+            theme_id=payload.theme_id,
+            background_color=payload.background_color,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return serialize_theme_preferences(preferences)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

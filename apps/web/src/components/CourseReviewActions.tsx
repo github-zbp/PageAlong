@@ -36,15 +36,15 @@ export function CourseReviewActions({
   }
 
   return (
-    <div className="mb-5 rounded-lg border border-[#e3c88f] bg-[#f4e6ca] p-4">
+    <div className="mb-5 rounded-lg border border-[var(--pa-amber-soft)] bg-[var(--pa-amber-soft)] p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-[#1f1a14]">{dictionary.detail.reviewTitle}</p>
-          <p className="mt-1 text-sm leading-6 text-[#70685e]">{dictionary.detail.reviewBody}</p>
-          {error ? <p className="mt-2 text-sm text-[#b42318]">{error}</p> : null}
+          <p className="text-sm font-medium text-[var(--pa-ink)]">{dictionary.detail.reviewTitle}</p>
+          <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.detail.reviewBody}</p>
+          {error ? <p className="mt-2 text-sm text-[var(--pa-error)]">{error}</p> : null}
         </div>
         <button
-          className="pa-focus w-full rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
+          className="pa-focus w-full rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
           disabled={isSubmitting}
           onClick={submit}
           type="button"

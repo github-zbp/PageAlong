@@ -46,6 +46,12 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     sessions: Mapped[list[AuthSession]] = relationship(back_populates="user")
+    preferences: Mapped[UserPreference | None] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        single_parent=True,
+        uselist=False,
+    )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -102,3 +108,22 @@ class AuthEvent(Base):
             self.user_agent = ""
         if self.metadata_json is None:
             self.metadata_json = "{}"
+
+
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    theme_id: Mapped[str] = mapped_column(String(32), default="newspaper")
+    background_color: Mapped[str] = mapped_column(String(32), default="white")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user: Mapped[User] = relationship(back_populates="preferences")
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.theme_id is None:
+            self.theme_id = "newspaper"
+        if self.background_color is None:
+            self.background_color = "white"

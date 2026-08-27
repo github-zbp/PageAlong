@@ -8,7 +8,6 @@ import {
   PanelRight,
   Pause,
   Play,
-  RefreshCcw,
   Settings
 } from "lucide-react";
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
@@ -18,7 +17,7 @@ import { readPanelState, writePanelState } from "../lib/session";
 import { defaultSettings, readSettings, writeSettings } from "../lib/settings";
 import { createTtsController } from "../lib/ttsController";
 import type { ExtensionSettings, ExtractedArticle } from "../lib/types";
-import { initialPanelState, panelReducer, type PanelTab, type SyncState, type SyncedCourseSummary } from "./state";
+import { initialPanelState, panelReducer, type SyncState, type SyncedCourseSummary } from "./state";
 
 type ViewMode = "sidepanel" | "page" | "popup";
 type SourceContext = {
@@ -116,7 +115,7 @@ function syncStatusCopy(syncState: SyncState, course: SyncedCourseSummary | null
   if (syncState === "failed") {
     return "同步失败，请重试。";
   }
-  return "同步后可在 PageAlong 继续听、按句回放、整理系列、跨设备续播。";
+  return "收藏后可免费在 PageAlong 反复听、下载音频/PDF/Markdown、按句回放、整理为课程、生成AI笔记";
 }
 
 function currentSourceLabel(article: ExtractedArticle | null, sourceContext: SourceContext | null): string {
@@ -233,7 +232,7 @@ export function App() {
           playbackState: "idle",
           activeSentenceIndex: -1,
           syncState: "idle",
-          error: "当前页面无法剪藏，请使用“同步 URL”让 PageAlong 尝试抓取。",
+          error: "当前页面无法剪藏，请使用收藏按钮让 PageAlong 尝试抓取。",
           lastSyncedCourse: null
         }
       });
@@ -318,6 +317,10 @@ export function App() {
       dispatch({ type: "FAILED", message: "Chrome TTS 不可用", scope: "playback" });
       return;
     }
+    if (state.playbackState === "playing") {
+      await pausePlayback();
+      return;
+    }
     if (state.playbackState === "paused") {
       tts.resume();
       dispatch({ type: "PLAYING", index: state.activeSentenceIndex >= 0 ? state.activeSentenceIndex : 0 });
@@ -358,11 +361,10 @@ export function App() {
     setSettings(updated);
   }
 
-  async function syncToPageAlong(forceUrlOnly = false): Promise<void> {
-    const article = state.article;
+  async function syncToPageAlong(): Promise<void> {
     const context = sourceContextRef.current;
-    const sourceUrl = article?.url ?? context?.url ?? "";
-    const sourceTitle = article?.title ?? context?.title ?? "";
+    const sourceUrl = context?.url ?? state.article?.url ?? "";
+    const sourceTitle = context?.title ?? state.article?.title ?? "";
     if (!sourceUrl) {
       dispatch({ type: "FAILED", message: "当前页面缺少可同步的 URL", scope: "sync" });
       return;
@@ -372,7 +374,7 @@ export function App() {
       dispatch({ type: "SYNC_STATE", syncState: "checking_auth" });
       await pageAlongClient.me();
       dispatch({ type: "SYNC_STATE", syncState: "submitting" });
-      const course = forceUrlOnly || !article ? await pageAlongClient.syncUrl(sourceUrl, sourceTitle) : await pageAlongClient.syncArticle(article);
+      const course = await pageAlongClient.syncUrl(sourceUrl, sourceTitle);
       dispatch({ type: "SYNC_SUCCESS", course });
       dispatch({ type: "SYNC_STATE", syncState: courseStatusToSyncState(course.status) });
     } catch (error) {
@@ -437,7 +439,7 @@ export function App() {
               playbackState: "idle",
               activeSentenceIndex: -1,
               syncState: "idle",
-              error: "当前页面无法剪藏，请使用“同步 URL”让 PageAlong 尝试抓取。",
+              error: "当前页面无法剪藏，请使用收藏按钮让 PageAlong 尝试抓取。",
               lastSyncedCourse: null
             }
           });
@@ -474,11 +476,16 @@ export function App() {
   const sourceLabel = currentSourceLabel(article, sourceContext);
   const sourceDomain = currentSourceDomain(article, sourceContext);
   const playbackButtonLabel =
-    state.playbackState === "paused" ? "继续" : state.playbackState === "playing" ? "重播" : state.playbackState === "failed" ? "重试" : "播放";
-  const syncButtonLabel = article ? "同步至 PageAlong 平台" : "同步 URL 让 PageAlong 尝试抓取";
+    state.playbackState === "playing"
+      ? "暂停"
+      : state.playbackState === "paused"
+        ? "继续"
+        : state.playbackState === "failed"
+          ? "重试"
+          : "播放";
+  const syncButtonLabel = "收藏至PageAlong平台";
   const syncCopy = syncStatusCopy(state.syncState, state.lastSyncedCourse);
   const hasSentences = Boolean(article?.sentences.length);
-  const canUseSourceUrl = Boolean(sourceContext?.url || article?.url);
 
   return (
     <main
@@ -497,15 +504,6 @@ export function App() {
             <p className="pa-subtitle">把当前网页变成一路相随的课程。</p>
           </div>
           <div className="pa-header-actions">
-            <button
-              aria-label="重新剪藏"
-              className="pa-icon-button"
-              onClick={() => void clipCurrentPage()}
-              title="重新剪藏"
-              type="button"
-            >
-              <RefreshCcw size={16} />
-            </button>
             {viewMode !== "page" ? (
               <button
                 className="pa-icon-button pa-mode-button"
@@ -536,39 +534,12 @@ export function App() {
         </p>
       </header>
 
-      <nav className="pa-tabs" aria-label="插件功能">
-        {(
-          [
-            ["reader", "朗读"],
-            ["sync", "同步"],
-            ["settings", "设置"]
-          ] as Array<[PanelTab, string]>
-        ).map(([tab, label]) => (
-          <button
-            key={tab}
-            className={state.tab === tab ? "pa-tab pa-tab-active" : "pa-tab"}
-            onClick={() => dispatch({ type: "TAB", tab })}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
-
       {bootstrapping ? <p className="pa-banner">正在读取当前标签页。</p> : null}
 
       {state.error ? (
         <section className="pa-banner pa-banner-error">
           <p>{state.error}</p>
           <div className="pa-banner-actions">
-            <button className="pa-secondary" onClick={() => void clipCurrentPage()} type="button">
-              重新剪藏
-            </button>
-            {canUseSourceUrl ? (
-              <button className="pa-secondary" onClick={() => void syncToPageAlong(true)} type="button">
-                同步 URL
-              </button>
-            ) : null}
             {viewMode !== "page" ? (
               <button className="pa-secondary" onClick={() => void openStandalonePage()} type="button">
                 打开独立页
@@ -583,124 +554,81 @@ export function App() {
         </section>
       ) : null}
 
-      {state.tab === "reader" ? (
-        <section className="pa-reader">
-          <div className="pa-reader-title">
-            <h1>{sourceLabel}</h1>
-            <p>{article?.url || sourceContext?.url || "当前标签页会在这里显示正文分段。"}</p>
-          </div>
+      <section className="pa-reader">
+        <div className="pa-reader-meta">
+          <span>{article?.sentences.length ? `${article.sentences.length} 句` : "尚未解析出正文"}</span>
+          <span>
+            {state.playbackState === "playing"
+              ? "正在朗读"
+              : state.playbackState === "paused"
+                ? "已暂停"
+                : state.playbackState === "failed"
+                  ? "播放失败"
+                  : "待播放"}
+          </span>
+        </div>
 
-          <div className="pa-reader-meta">
-            <span>{article?.sentences.length ? `${article.sentences.length} 句` : "尚未解析出正文"}</span>
-            <span>
-              {state.playbackState === "playing"
-                ? "正在朗读"
-                : state.playbackState === "paused"
-                  ? "已暂停"
-                  : state.playbackState === "failed"
-                    ? "播放失败"
-                    : "待播放"}
-            </span>
-          </div>
-
-          <div className="pa-reader-actions">
-            <button className="pa-secondary" onClick={() => void clipCurrentPage()} type="button">
-              重新剪藏
+        <div className="pa-sentences">
+          {(article?.sentences || []).map((sentence) => (
+            <button
+              className={sentence.index === state.activeSentenceIndex ? "pa-sentence pa-sentence-active" : "pa-sentence"}
+              key={sentence.index}
+              onClick={() => void startPlayback(sentence.index)}
+              type="button"
+            >
+              {sentence.text}
             </button>
-            <button className="pa-secondary" onClick={() => void syncToPageAlong(!article)} type="button">
-              同步 URL
-            </button>
-          </div>
+          ))}
+          {!article?.sentences.length ? <p className="pa-empty">当前页面还没有可朗读的正文。</p> : null}
+        </div>
+      </section>
 
-          <div className="pa-sentences">
-            {(article?.sentences || []).map((sentence) => (
+      <section className="pa-settings">
+        <div className="pa-setting-block">
+          <p className="pa-setting-label">高亮颜色</p>
+          <div className="pa-swatches">
+            {colorOptions.map((color) => (
               <button
-                className={sentence.index === state.activeSentenceIndex ? "pa-sentence pa-sentence-active" : "pa-sentence"}
-                key={sentence.index}
-                onClick={() => void startPlayback(sentence.index)}
+                aria-label={`高亮颜色 ${color}`}
+                className={`pa-swatch pa-swatch-${color} ${settings.highlightColor === color ? "pa-swatch-active" : ""}`}
+                key={color}
+                onClick={() => void updateSettings({ highlightColor: color })}
+                title={`高亮颜色 ${color}`}
+                type="button"
+              />
+            ))}
+          </div>
+        </div>
+
+        <label className="pa-toggle">
+          <span>自动滚动当前句</span>
+          <input
+            checked={settings.autoScroll}
+            onChange={(event) => void updateSettings({ autoScroll: event.currentTarget.checked })}
+            type="checkbox"
+          />
+        </label>
+
+        <div className="pa-setting-block">
+          <p className="pa-setting-label">播放器倍速</p>
+          <div className="pa-rate-row">
+            {rateOptions.map((rate) => (
+              <button
+                className={settings.playbackRate === rate ? "pa-rate-chip pa-rate-chip-active" : "pa-rate-chip"}
+                key={rate}
+                onClick={() => void updateSettings({ playbackRate: rate })}
                 type="button"
               >
-                {sentence.text}
+                {rate}x
               </button>
             ))}
-            {!article?.sentences.length ? <p className="pa-empty">当前页面还没有可朗读的正文。</p> : null}
           </div>
-        </section>
-      ) : null}
-
-      {state.tab === "sync" ? (
-        <section className="pa-panel pa-sync-panel">
-          <p className="pa-copy">{syncCopy}</p>
-          <button className="pa-primary" onClick={() => void syncToPageAlong(!article)} type="button">
-            <CloudUpload size={16} />
-            {syncButtonLabel}
-          </button>
-          {state.lastSyncedCourse ? (
-            <div className="pa-result">
-              <p className="pa-result-title">同步完成</p>
-              <p className="pa-result-copy">
-                {state.lastSyncedCourse.title || sourceLabel} · {state.lastSyncedCourse.status}
-              </p>
-              <div className="pa-result-actions">
-                <button className="pa-secondary" onClick={() => void openCourse()} type="button">
-                  <ExternalLink size={16} />
-                  打开课程
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <p className="pa-copy pa-copy-tight">保存正文和图片，不用保持当前网页打开。</p>
-        </section>
-      ) : null}
-
-      {state.tab === "settings" ? (
-        <section className="pa-settings">
-          <div className="pa-setting-block">
-            <p className="pa-setting-label">高亮颜色</p>
-            <div className="pa-swatches">
-              {colorOptions.map((color) => (
-                <button
-                  aria-label={`高亮颜色 ${color}`}
-                  className={`pa-swatch pa-swatch-${color} ${settings.highlightColor === color ? "pa-swatch-active" : ""}`}
-                  key={color}
-                  onClick={() => void updateSettings({ highlightColor: color })}
-                  title={`高亮颜色 ${color}`}
-                  type="button"
-                />
-              ))}
-            </div>
-          </div>
-
-          <label className="pa-toggle">
-            <span>自动滚动当前句</span>
-            <input
-              checked={settings.autoScroll}
-              onChange={(event) => void updateSettings({ autoScroll: event.currentTarget.checked })}
-              type="checkbox"
-            />
-          </label>
-
-          <div className="pa-setting-block">
-            <p className="pa-setting-label">播放器倍速</p>
-            <div className="pa-rate-row">
-              {rateOptions.map((rate) => (
-                <button
-                  className={settings.playbackRate === rate ? "pa-rate-chip pa-rate-chip-active" : "pa-rate-chip"}
-                  key={rate}
-                  onClick={() => void updateSettings({ playbackRate: rate })}
-                  type="button"
-                >
-                  {rate}x
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      ) : null}
+        </div>
+      </section>
 
       <footer className="pa-dock">
         <p className="pa-current">{state.activeSentenceIndex >= 0 ? article?.sentences.find((sentence) => sentence.index === state.activeSentenceIndex)?.text || "准备播放" : "准备播放"}</p>
-        <button className="pa-primary pa-sync-button" onClick={() => void syncToPageAlong(!article)} type="button">
+        <button className="pa-primary pa-sync-button" onClick={() => void syncToPageAlong()} type="button">
           <CloudUpload size={16} />
           {syncButtonLabel}
         </button>
@@ -733,17 +661,7 @@ export function App() {
             title={playbackButtonLabel}
             type="button"
           >
-            <Play size={20} />
-          </button>
-          <button
-            aria-label="暂停"
-            className="pa-icon-button"
-            disabled={!tts || state.playbackState !== "playing"}
-            onClick={() => void pausePlayback()}
-            title="暂停"
-            type="button"
-          >
-            <Pause size={18} />
+            {state.playbackState === "playing" ? <Pause size={20} /> : <Play size={20} />}
           </button>
           <button
             aria-label="下一句"

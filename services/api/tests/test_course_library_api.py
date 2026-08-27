@@ -67,6 +67,53 @@ def test_library_filters_by_query_tag_and_starred(client, monkeypatch):
     assert [item["title"] for item in series_query.json()["items"]] == ["编程入门"]
 
 
+def test_library_list_paginates_filtered_results(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    create_text_course(client, "课程 A", tags=["A"])
+    create_text_course(client, "课程 B", tags=["B"])
+    create_text_course(client, "课程 C", tags=["C"])
+
+    response = client.get(
+        "/courses",
+        params={"library_type": "fragmented", "query": "课程", "page": 2, "page_size": 1},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pagination"] == {
+        "page": 2,
+        "page_size": 1,
+        "total": 3,
+        "total_pages": 3,
+        "has_previous": True,
+        "has_next": True,
+    }
+    assert [item["title"] for item in body["items"]] == ["课程 B"]
+
+
+def test_series_list_returns_paginated_metadata_and_validates_page_arguments(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    create_text_course(client, "系列 A-1", series_title="系列 A")
+    create_text_course(client, "系列 A-2", series_title="系列 A")
+    create_text_course(client, "系列 B-1", series_title="系列 B")
+
+    response = client.get("/courses/series", params={"query": "系列", "page": 1, "page_size": 2})
+    invalid_page = client.get("/courses/series", params={"page": 0})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["pagination"] == {
+        "page": 1,
+        "page_size": 2,
+        "total": 2,
+        "total_pages": 1,
+        "has_previous": False,
+        "has_next": False,
+    }
+    assert [item["title"] for item in body["items"]] == ["系列 B", "系列 A"]
+    assert invalid_page.status_code == 422
+
+
 def test_course_can_move_between_fragmented_and_series(client, db_session, monkeypatch):
     stub_audio_queue(monkeypatch)
     created = create_text_course(client, "待整理课程")
@@ -133,6 +180,46 @@ def test_series_can_be_created_listed_read_and_deleted_only_when_empty(client, m
     assert emptied.status_code == 200
     assert emptied.json()["moved_count"] == 2
     assert client.get("/courses/series").json()["items"][0]["article_count"] == 0
+
+
+def test_created_series_persists_across_fresh_requests(monkeypatch):
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    from app.api.deps import get_current_user_id
+    from app.db.base import Base
+    from app.db.session import get_db
+    from app.main import app as fastapi_app
+    import app.models as _models  # noqa: F401
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = SessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    fastapi_app.dependency_overrides[get_db] = override_get_db
+    fastapi_app.dependency_overrides[get_current_user_id] = lambda: "test_user"
+    try:
+        with TestClient(fastapi_app) as test_client:
+            created = test_client.post("/courses/series", json={"title": "英语精听"})
+            assert created.status_code == 201
+
+            listed = test_client.get("/courses/series")
+            assert [item["title"] for item in listed.json()["items"]] == ["英语精听"]
+    finally:
+        fastapi_app.dependency_overrides.clear()
 
 
 def test_series_metadata_can_update_and_move_articles_to_fragments(client, monkeypatch):

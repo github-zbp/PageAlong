@@ -1,0 +1,27 @@
+---
+version: 1
+slug: "apps-web-src-app-locale-dashboard-page-tsx"
+primary_target: "apps/web/src/app/[locale]/dashboard/page.tsx"
+related_targets: []
+---
+
+## Job and audience
+Returning learners open the dashboard to see what to do next. The surface is Operate mode.
+
+## Outcome and proof
+Primary action: resume the next course or inspect progress. Proof: saved playback position, course status, and recent items.
+
+## Selected direction
+A quiet launch pad for learning. The first viewport should answer "What should I continue?" before it asks for management work. Lead with one dominant continue-learning block, then a compact recent-courses list and a secondary import entry. The signature interaction is that the top block changes by state: resume-ready, empty, or pending generation.
+
+## Scope and boundaries
+This brief covers the dashboard/workbench only. It does not redesign the public homepage. Keep current product truth intact: no real TTS, auth, payment, OCR, file upload, or URL import claims.
+
+## States and ranges
+Empty library, one resume-ready course, multiple recent courses, pending generation, failed generation, and partial progress. The surface must remain complete when almost empty and still readable when the list is long.
+
+## Interaction and layout
+Desktop should scan as a calm task board with one clear primary action. Mobile should collapse into a single-column learning flow with the resume block first and the recent list below it. The surface should use restrained metadata, not a dense admin table.
+
+## Constraints and open decisions
+Chinese-first labels with English support stay in place. Local development still uses fixed `X-User-Id`. Open decision: how much course-state metadata should appear in the resume block before the user expands anything.

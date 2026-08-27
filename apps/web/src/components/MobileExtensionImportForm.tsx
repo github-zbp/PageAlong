@@ -104,7 +104,7 @@ export function MobileExtensionImportForm({
             value={title}
           />
         </label>
-        {error ? <p className="text-sm leading-6 text-[#b42318]">{error}</p> : null}
+        {error ? <p className="text-sm leading-6 text-[var(--pa-error)]">{error}</p> : null}
         <button
           className="pa-focus flex h-11 w-full items-center justify-center rounded-md bg-[var(--pa-green)] px-4 text-sm font-medium text-white disabled:opacity-60"
           disabled={submitting}

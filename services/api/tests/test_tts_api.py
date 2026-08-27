@@ -112,6 +112,33 @@ def test_retry_audio_generation_reuses_pending_job_for_current_user(client, db_s
     assert db_session.query(GenerationJob).filter(GenerationJob.course_id == created["id"]).count() == existing_job_count
 
 
+def test_retry_audio_generation_marks_job_failed_when_enqueue_fails(client, db_session, monkeypatch):
+    def fail_enqueue(course_id, job_id):
+        raise RuntimeError("redis unavailable")
+
+    monkeypatch.setattr("app.services.course_service.enqueue_audio_generation", fail_enqueue)
+    course = Course(
+        user_id="test_user",
+        title="音频排队失败",
+        source_type=SourceType.MANUAL_TEXT,
+        status=CourseStatus.TEXT_READY,
+    )
+    db_session.add(course)
+    db_session.flush()
+    db_session.add(ArticleText(course_id=course.id, version=1, text="第一句。"))
+    db_session.commit()
+
+    response = client.post(f"/courses/{course.id}/audio-generation")
+
+    assert response.status_code == 503
+    db_session.expire_all()
+    course = db_session.get(Course, course.id)
+    job = db_session.query(GenerationJob).filter(GenerationJob.course_id == course.id).one()
+    assert course.status == CourseStatus.FAILED
+    assert job.status == JobStatus.FAILED
+    assert job.error_code == "queue_unavailable"
+
+
 def test_retry_audio_generation_is_reported_as_latest_generation_job(client, db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.course_service.enqueue_audio_generation",

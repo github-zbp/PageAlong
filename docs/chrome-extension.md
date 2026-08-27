@@ -28,7 +28,7 @@ npm run build
 
 Chrome 打开 `chrome://extensions`，开启 Developer mode，加载 `apps/extension/dist` 作为 unpacked extension。
 
-扩展默认指向线上服务 `https://web-reader.zbpblog.cn`，所以 Chrome 里看到的站点授权也会是这个域名。
+扩展默认指向线上 API `https://web-reader.zbpblog.cn/api`，登录页仍使用主站域名，所以 Chrome 里看到的站点授权也会是这个域名。
 
 提示：Chrome 默认会把扩展放在扩展菜单里，不会自动固定到顶部栏；需要手动 pin。点击扩展图标会打开 popup 小窗，popup 内展示当前页剪藏、朗读、同步和设置内容。MV3 的 service worker 也会在空闲后自动休眠，看到“无效/Inactive”不一定是坏掉了，先确认加载的是 `apps/extension/dist`。
 

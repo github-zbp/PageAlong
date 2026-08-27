@@ -40,12 +40,12 @@ function statusText(user: AuthUser, localeText: Dictionary): string {
 function chipClass(kind: "role" | "status", value: string): string {
   if (kind === "role") {
     return value === "admin"
-      ? "border-amber-200 bg-amber-50 text-amber-800"
-      : "border-neutral-200 bg-neutral-50 text-neutral-700";
+      ? "border-[var(--pa-amber)] bg-[var(--pa-amber-soft)] text-[var(--pa-amber)]"
+      : "border-[var(--pa-line)] bg-[var(--pa-muted-surface)] text-[var(--pa-muted)]";
   }
   return value === "active"
-    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-    : "border-rose-200 bg-rose-50 text-rose-800";
+    ? "border-[var(--pa-green)] bg-[var(--pa-green-soft)] text-[var(--pa-green)]"
+    : "border-[var(--pa-error)] bg-[var(--pa-error-soft)] text-[var(--pa-error)]";
 }
 
 export default function AdminUsersPage({ params }: { params: { locale: string } }) {
@@ -138,7 +138,7 @@ export default function AdminUsersPage({ params }: { params: { locale: string } 
           </p>
         </div>
 
-        <form className="grid gap-3 rounded-md border border-[var(--pa-line)] bg-[rgba(47,111,94,0.04)] p-4 lg:grid-cols-[minmax(0,1.4fr)_160px_160px_auto_auto]" onSubmit={submitFilters}>
+        <form className="grid gap-3 rounded-md border border-[var(--pa-line)] bg-[var(--pa-muted-surface)] p-4 lg:grid-cols-[minmax(0,1.4fr)_160px_160px_auto_auto]" onSubmit={submitFilters}>
           <label className="block space-y-2 text-sm">
             <span className="text-[var(--pa-muted)]">{dictionary.auth.searchUsers}</span>
             <input

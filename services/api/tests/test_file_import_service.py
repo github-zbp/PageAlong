@@ -61,6 +61,7 @@ def test_file_import_service_skips_failed_items_and_continues(db_session, tmp_pa
     assert batch.success_count == 1
     assert batch.failed_count == 1
     assert failed_item.error_code == "unsupported_file_type"
+    assert valid_item.resource_id is not None
     assert course.source_type == SourceType.FILE_UPLOAD
     assert course.status == CourseStatus.TEXT_READY
     assert course.word_count > 0

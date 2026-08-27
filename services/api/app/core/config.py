@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     brevo_smtp_password: str = ""
     mail_from_email: str = "no-reply@localhost"
     mail_from_name: str = "PageAlong"
+    feedback_recipient_email: str = "juhuatang@outlook.com"
 
     admin_bootstrap_email: str = ""
     admin_bootstrap_password: str = ""

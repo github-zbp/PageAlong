@@ -50,7 +50,7 @@ export function AuthGate({
   }, [locale, pathname, router]);
 
   if (isLoading || currentUser === null) {
-    return fallback ?? <div className="py-10 text-sm text-neutral-500">Loading...</div>;
+    return fallback ?? <div className="py-10 text-sm text-[var(--pa-muted)]">Loading...</div>;
   }
 
   return <>{children(currentUser)}</>;

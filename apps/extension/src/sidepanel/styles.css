@@ -139,7 +139,6 @@ select:focus-visible {
 .pa-icon-button,
 .pa-secondary,
 .pa-primary,
-.pa-tab,
 .pa-sentence,
 .pa-swatch,
 .pa-rate-chip,
@@ -164,29 +163,6 @@ select:focus-visible {
 
 .pa-mode-button {
   white-space: nowrap;
-}
-
-.pa-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.pa-tab {
-  min-height: 38px;
-  border: 1px solid var(--pa-line);
-  border-radius: 7px;
-  background: var(--pa-surface-strong);
-  color: var(--pa-muted);
-  padding: 0 8px;
-  font-size: 13px;
-  line-height: 1.2;
-}
-
-.pa-tab-active {
-  background: var(--pa-green);
-  border-color: var(--pa-green);
-  color: #fff;
 }
 
 .pa-banner {
@@ -248,26 +224,9 @@ select:focus-visible {
 }
 
 .pa-reader,
-.pa-panel,
-.pa-sync-panel,
 .pa-settings {
   display: grid;
   gap: 12px;
-}
-
-.pa-reader-title h1 {
-  margin: 4px 0 0;
-  font-size: 20px;
-  line-height: 1.4;
-  word-break: break-word;
-}
-
-.pa-reader-title p {
-  margin: 6px 0 0;
-  color: var(--pa-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: break-word;
 }
 
 .pa-reader-meta {
@@ -277,12 +236,6 @@ select:focus-visible {
   color: var(--pa-muted);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.pa-reader-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .pa-sentences {
@@ -329,39 +282,6 @@ select:focus-visible {
   color: var(--pa-muted);
   font-size: 13px;
   line-height: 1.6;
-}
-
-.pa-copy-tight {
-  margin-top: -2px;
-}
-
-.pa-result {
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--pa-line);
-  border-radius: 8px;
-  background: var(--pa-surface-strong);
-  padding: 12px;
-}
-
-.pa-result-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.pa-result-copy {
-  margin: 0;
-  color: var(--pa-muted);
-  font-size: 12px;
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.pa-result-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
 }
 
 .pa-link-button {
@@ -515,7 +435,7 @@ select:focus-visible {
 
 .pa-controls {
   display: grid;
-  grid-template-columns: 34px 34px 42px 34px 34px minmax(64px, 1fr) 34px;
+  grid-template-columns: 34px 34px 42px 34px minmax(64px, 1fr) 34px;
   align-items: center;
   gap: 4px;
 }

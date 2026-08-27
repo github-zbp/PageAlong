@@ -46,6 +46,17 @@ test("mobile extension import submits URL sync and opens course", async ({ page 
     }
     await route.fulfill({ status: 200, headers: apiHeaders, body: JSON.stringify(authUser) });
   });
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/me\/preferences$/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: apiHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({ theme_id: "newspaper", background_color: "white" })
+    });
+  });
   await page.route(/http:\/\/localhost:(8000|8070)\/courses\/import-url\/extension-sync$/, async (route) => {
     if (route.request().method() === "OPTIONS") {
       await route.fulfill({ status: 204, headers: apiHeaders });

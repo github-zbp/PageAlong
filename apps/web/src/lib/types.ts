@@ -22,6 +22,28 @@ export type CourseSource = {
   object_key: string | null;
 };
 
+export type TagRead = {
+  id: string;
+  name: string;
+  color: string;
+  usage_count: number;
+  updated_at: string;
+};
+
+export type Pagination = {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  has_previous: boolean;
+  has_next: boolean;
+};
+
+export type PaginatedList<T> = {
+  items: T[];
+  pagination: Pagination;
+};
+
 export type CourseBase = {
   id: string;
   title: string;
@@ -36,7 +58,7 @@ export type CourseBase = {
   library_type: "fragmented" | "series";
   series_id: string | null;
   series_title: string | null;
-  tags: string[];
+  tags: TagRead[];
   is_starred: boolean;
   created_at: string;
   updated_at: string;
@@ -63,6 +85,9 @@ export type Course = CourseBase & {
 export type GenerationJob = {
   id: string;
   course_id: string;
+  target_type: string;
+  target_id: string;
+  target_label: string | null;
   job_type: string;
   status: string;
   provider?: string | null;
@@ -70,10 +95,23 @@ export type GenerationJob = {
   tier?: string | null;
   progress_current?: number;
   progress_total?: number;
+  result_resource_id?: string | null;
+  download_url?: string | null;
   error_code?: string | null;
   error_message?: string | null;
   started_at?: string | null;
   finished_at?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type DownloadRequest = {
+  status: "ready" | "pending";
+  job_id: string | null;
+  job_type: string;
+  resource_id: string | null;
+  download_url: string | null;
+  message: string | null;
 };
 
 export type FileImportItem = {
@@ -121,6 +159,7 @@ export type CourseSeries = {
   is_starred: boolean;
   updated_at: string;
   last_read_at: string | null;
+  last_read_course_id: string | null;
   latest_course_id: string | null;
 };
 
@@ -147,3 +186,5 @@ export type AuthResponse = {
 export type AdminUserList = {
   items: AuthUser[];
 };
+
+export type FeedbackCategory = "suggestion" | "bug" | "feature";

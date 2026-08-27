@@ -5,8 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "typecheck": "tsc --noEmit",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "fix-memory-limit": "cross-env LIMIT=2048 increase-memory-limit"
   },
   "dependencies": {
     "@tanstack/react-query": "5.51.11",

@@ -164,7 +164,7 @@ function renderInlineText(
       nodes.push(<React.Fragment key={`${keyPrefix}-c-${index}`}>{code[1]}</React.Fragment>);
     } else if (asteriskBold || underscoreBold) {
       nodes.push(
-        <strong key={`${keyPrefix}-b-${index}`} className="font-semibold text-[#1f1a14]">
+        <strong key={`${keyPrefix}-b-${index}`} className="font-semibold text-[var(--pa-ink)]">
           {(asteriskBold ?? underscoreBold)?.[1]}
         </strong>
       );
@@ -185,7 +185,7 @@ function renderInlineText(
       data-sentence-index={sentence.index}
       className={[
         "inline rounded-sm px-0.5 text-left transition-colors",
-        isActive ? "pa-sentence-active text-[#1f1a14]" : "hover:bg-[#fff1d4]"
+        isActive ? "pa-sentence-active text-[var(--pa-ink)]" : "hover:bg-[var(--pa-muted-surface)]"
       ].join(" ")}
       onClick={() => onSelectSentence(sentence)}
     >
@@ -211,7 +211,7 @@ function buildTextUnits(blocks: Block[]): TextUnit[] {
   const units: TextUnit[] = [];
   blocks.forEach((block, blockIndex) => {
     if (block.type === "heading") {
-      const className = block.depth === 1 ? "text-xl font-semibold text-[#1f1a14]" : "text-lg font-semibold text-[#1f1a14]";
+      const className = block.depth === 1 ? "text-xl font-semibold text-[var(--pa-ink)]" : "text-lg font-semibold text-[var(--pa-ink)]";
       units.push({
         id: `h-${blockIndex}`,
         text: block.text,
@@ -241,7 +241,7 @@ function buildTextUnits(blocks: Block[]): TextUnit[] {
         normalizedText: "",
         kind: "code",
         render: (_nodes, key) => (
-          <pre key={key} className="overflow-x-auto rounded-lg bg-[#1f1a14] p-3 text-sm leading-6 text-[#fffdf8]">
+          <pre key={key} className="overflow-x-auto rounded-lg bg-[var(--pa-muted-surface)] p-3 text-sm leading-6 text-[var(--pa-ink)]">
             <code>{block.text}</code>
           </pre>
         )
@@ -258,7 +258,7 @@ function buildTextUnits(blocks: Block[]): TextUnit[] {
           <img
             key={key}
             alt={block.alt}
-            className="max-h-[70vh] w-full rounded-lg bg-[#f3ede2] object-contain"
+            className="max-h-[70vh] w-full rounded-lg bg-[var(--pa-muted-surface)] object-contain"
             decoding="async"
             loading="lazy"
             src={mediaUrl(block.src)}

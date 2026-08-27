@@ -18,7 +18,7 @@ export function SentenceList({
             "w-full rounded border px-3 py-2 text-left text-base leading-7",
             sentence.index === activeIndex
               ? "border-amber-500 bg-amber-50"
-              : "border-neutral-200 bg-white"
+              : "border-[var(--pa-line)] bg-[var(--pa-surface)]"
           ].join(" ")}
           onClick={() => onSelect(sentence)}
           type="button"

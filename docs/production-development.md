@@ -180,8 +180,12 @@ scripts/prod-apps.sh logs worker
 scripts/prod-apps.sh logs web
 scripts/prod-apps.sh attach web
 
+`api` 和 `worker` 的 `logs` 会直接读取持久化文件日志，位置分别是 `services/api/storage/logs/api.log` 和 `services/worker/storage/logs/worker.log`；`web` 仍然读取 tmux 窗口输出。
+`prod-apps.sh stop` 和 `prod-apps.sh start` 会清理工作目录属于 `PROJECT_ROOT/services/worker` 的历史 Celery worker 进程，避免多次启动后残留的 worker 持续占用内存。
+
 ### 如果前端改过，需要先构建
-scripts/prod-apps.sh build-web
-scripts/prod-apps.sh restart
+cd /www/web_reader && scripts/prod-apps.sh build-web
+cd /www/web_reader && scripts/prod-apps.sh restart
 
 `build-web` 会先停掉正在运行的 Web 会话，并保留上一版的静态 chunk，避免构建期间或旧页面缓存继续请求时出现 `/_next/static/chunks/*` 404。
+`build-web` 现在会跳过 Next 的内建类型和 lint 检查；需要检查时单独运行 `npm run typecheck`。脚本默认给 `next build` 加上 `NODE_OPTIONS=--max-old-space-size=256` 和 `NEXT_BUILD_CPUS=1`，用来降低低内存服务器上的 OOM 风险；如需调整，可在执行前设置 `WEB_BUILD_NODE_OPTIONS` 或 `WEB_BUILD_CPUS`。如果构建输出 `Killed` 或退出码 137，先检查服务器 OOM 记录：`free -h` 和 `dmesg -T | grep -Ei 'killed process|out of memory|oom'`。

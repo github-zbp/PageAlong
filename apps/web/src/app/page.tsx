@@ -1,6 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { SiteChrome } from "@/components/SiteChrome";
+import {
+  marketingFooterLinks,
+  marketingFooterNote,
+  marketingHref
+} from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "页相随 PageAlong",
@@ -54,17 +60,14 @@ type FitCard = {
   sentence: string;
 };
 
-type ComparisonCardData = {
-  title: string;
-  body: string;
-  note: string;
-  featured?: boolean;
+type ComparisonCell = {
+  value: string;
+  note?: string;
 };
 
-type StepCardData = {
-  index: string;
-  title: string;
-  body: string;
+type ComparisonRow = {
+  label: string;
+  cells: ComparisonCell[];
 };
 
 type PreviewRow = {
@@ -100,20 +103,15 @@ type PreviewCopy = {
 
 type HomeCopy = {
   locale: HomeLocale;
-  switchLabel: string;
-  switchHref: string;
   appHref: string;
   brandPrimary: string;
   brandSecondary: string;
-  navAria: string;
-  mobileNavAria: string;
   navLinks: NavLink[];
   primaryCta: string;
   secondaryCta: string;
   heroEyebrow: string;
   heroTitle: string;
   heroBody: string;
-  heroPills: string[];
   heroSignals: HeroSignal[];
   heroScene: HeroSceneCopy;
   fitSection: {
@@ -126,13 +124,8 @@ type HomeCopy = {
     eyebrow: string;
     title: string;
     description: string;
-    cards: ComparisonCardData[];
-  };
-  howSection: {
-    eyebrow: string;
-    title: string;
-    description: string;
-    steps: StepCardData[];
+    columns: string[];
+    rows: ComparisonRow[];
   };
   previewSection: {
     eyebrow: string;
@@ -144,45 +137,51 @@ type HomeCopy = {
     eyebrow: string;
     title: string;
     description: string;
-    note: string;
     secondaryCta: string;
+    secondaryCtaHref: string;
+  };
+  contactSection: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    emailLabel: string;
+    email: string;
+    emailNote: string;
+    qqLabel: string;
+    qq: string;
+    qqNote: string;
   };
 };
 
 const homeCopies: Record<HomeLocale, HomeCopy> = {
   zh: {
     locale: "zh",
-    switchLabel: "English",
-    switchHref: "/?lang=en",
     appHref: "/zh/import/text",
     brandPrimary: "页相随",
     brandSecondary: "PageAlong",
-    navAria: "Primary",
-    mobileNavAria: "Primary mobile",
     navLinks: [
-      { href: "#fit", label: "适合谁" },
-      { href: "#difference", label: "产品区别" },
-      { href: "#how", label: "怎么生成" },
-      { href: "#trial", label: "免费试用" }
+      { href: marketingHref("/guide", "zh"), label: "指南" },
+      { href: marketingHref("/download", "zh"), label: "下载" },
+      { href: marketingHref("/blog", "zh"), label: "博客" },
+      { href: marketingHref("/story", "zh"), label: "产品故事" }
     ],
-    primaryCta: "免费试用",
+    primaryCta: "免费使用",
     secondaryCta: "看看适不适合我",
     heroEyebrow: "页相随 PageAlong",
-    heroTitle: "把读不完的网页/文章/文档变成通勤也能听的有声课程",
-    heroBody: "把网页文章、博客干货、课程笔记整理成可续播的课程轨迹。通勤、做饭、睡前都能继续听，生成后还能下载保存。",
-    heroPills: ["当前可试用文本导入", "生成后可下载", "中文优先"],
+    heroTitle: "把读不完的网页、文章和课件变成通勤也能继续听的有声课程",
+    heroBody: "能自动把网页文章、文档笔记整理成可续播的课程轨迹。通勤、做饭、睡前都能继续听，生成音频后还能下载保存。",
     heroSignals: [
       {
         title: "离开屏幕后，学习还能继续。",
-        body: "上次停在哪里，下次就从哪里接上。"
+        body: "学习进度保存，上次停在哪里，下次就从哪里接上。"
       },
       {
-        title: "收藏的内容，不用再自己翻找。",
-        body: "从碎片内容到课程轨迹，一条线就能看懂。"
+        title: "收藏的内容整理到一起，不用再自己翻找。",
+        body: "从碎片内容到体系化课程整理。"
       },
       {
-        title: "生成后支持下载保存。",
-        body: "听完之后，还能留在本地继续复习。"
+        title: "生成音频后支持下载。",
+        body: "支持把课程按PDF/Word/MP3/Markdown文件下载。"
       }
     ],
     heroScene: {
@@ -222,8 +221,8 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
     },
     fitSection: {
       eyebrow: "适合谁",
-      title: "把内容听完，通常发生在这些时刻",
-      description: "不是所有学习场景都需要一整块屏幕和一张桌子。这个产品更像是把零散时间接起来。",
+      title: "碎片时间听完而非用一整块时间读完",
+      description: "不是所有学习场景都需要一整块屏幕和一张桌子，任何时间地点用零散时间把课程听完。",
       cards: [
         {
           title: "通勤路上",
@@ -261,56 +260,59 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
     },
     differenceSection: {
       eyebrow: "产品区别",
-      title: "为什么不是普通阅读器、音频 App 或剪藏插件？",
-      description: "前面三类工具各自解决了一段问题，但没有把收藏内容真正接到可续播、可下载的学习流程里。",
-      cards: [
+      title: "PageAlong 与普通阅读器、音频 App 或剪藏插件有什么区别？",
+      description: "PageAlong = 阅读器 + 音频 App + 剪藏插件",
+      columns: ["维度", "阅读器", "音频 App", "剪藏插件", "TTS 插件", "PageAlong"],
+      rows: [
         {
-          title: "阅读器",
-          body: "适合认真看，但离开屏幕就中断。",
-          note: "只覆盖自己擅长的那一段。"
+          label: "能不能听",
+          cells: [
+            { value: "×" },
+            { value: "√" },
+            { value: "×" },
+            { value: "√" },
+            { value: "√" }
+          ]
         },
         {
-          title: "音频 App",
-          body: "适合听体系化课程，但内容不是你自己收藏的。",
-          note: "只覆盖自己擅长的那一段。"
+          label: "内容能否来源于网页或自己的文档",
+          cells: [
+            { value: "√" },
+            { value: "×" },
+            { value: "√" },
+            { value: "√" },
+            { value: "√" }
+          ]
         },
         {
-          title: "剪藏插件",
-          body: "适合保存网页，但保存后还是要自己读。",
-          note: "只覆盖自己擅长的那一段。"
+          label: "音频能否下载",
+          cells: [
+            { value: "×" },
+            { value: "×", note: "可能需付费" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         },
         {
-          title: "PageAlong",
-          body: "把你收藏的碎片内容生成音频课程，还能续播和下载。",
-          note: "补上从收藏到可听的中间一步。",
-          featured: true
-        }
-      ]
-    },
-    howSection: {
-      eyebrow: "怎么生成",
-      title: "把碎片内容变成课程轨迹，只需要四步",
-      description: "只有确实按顺序发生的内容才用编号。这里的重点不是流程本身，而是内容如何被整理成一条可继续听的轨迹。",
-      steps: [
-        {
-          index: "01",
-          title: "粘贴或导入内容",
-          body: "从文章、博客或课程笔记开始。"
+          label: "能否转为 PDF / Word / Markdown 格式",
+          cells: [
+            { value: "×", note: "可能需付费" },
+            { value: "×" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         },
         {
-          index: "02",
-          title: "整理成课程记录",
-          body: "先把标题、段落和顺序排好。"
-        },
-        {
-          index: "03",
-          title: "生成句子时间轴",
-          body: "进入音频生成流程，准备续播和定位。"
-        },
-        {
-          index: "04",
-          title: "续播、复听、下载保存",
-          body: "完成后随时回听或留存。"
+          label: "知识管理能力",
+          cells: [
+            { value: "√" },
+            { value: "×" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         }
       ]
     },
@@ -358,7 +360,7 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
           rows: [
             {
               title: "音频",
-              meta: "生成后可下载",
+              meta: "可下载保存",
               badge: "推荐",
               badgeTone: "green"
             },
@@ -377,38 +379,44 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       }
     },
     trialSection: {
-      eyebrow: "免费试用",
+      eyebrow: "免费使用",
       title: "先把一篇读不完的文章，变成可以听的课程",
       description: "不用先整理完整学习计划。找一篇你最近收藏但一直没读完的内容，试试看它能不能变成你的下一节音频课程。",
-      note: "当前先体验文本导入流程，生成完成后支持下载保存。",
-      secondaryCta: "了解怎么生成"
+      secondaryCta: "查看产品区别",
+      secondaryCtaHref: "#difference"
+    },
+    contactSection: {
+      eyebrow: "联系",
+      title: "建议、Bug 和新功能，都可以直接发给我们",
+      description: "工作台里的反馈会自动附上当前账号邮箱，方便我们回看上下文。官网也保留公开联系方式，便于快速联系。",
+      emailLabel: "邮箱",
+      email: "juhuatang@outlook.com",
+      emailNote: "优先用于反馈、合作和问题跟进。",
+      qqLabel: "QQ",
+      qq: "1640632344",
+      qqNote: "如果你更习惯 QQ，也可以直接联系。"
     }
   },
   en: {
     locale: "en",
-    switchLabel: "中文",
-    switchHref: "/?lang=zh",
     appHref: "/en/import/text",
     brandPrimary: "PageAlong",
-    brandSecondary: "页相随",
-    navAria: "Primary",
-    mobileNavAria: "Primary mobile",
+    brandSecondary: "Turn long reads into courses that follow along.",
     navLinks: [
-      { href: "#fit", label: "Who it fits" },
-      { href: "#difference", label: "What is different" },
-      { href: "#how", label: "How it works" },
-      { href: "#trial", label: "Free trial" }
+      { href: marketingHref("/guide", "en"), label: "Guide" },
+      { href: marketingHref("/download", "en"), label: "Download" },
+      { href: marketingHref("/blog", "en"), label: "Blog" },
+      { href: marketingHref("/story", "en"), label: "Product Story" }
     ],
-    primaryCta: "Start free",
+    primaryCta: "Use for free",
     secondaryCta: "See if it fits",
     heroEyebrow: "PageAlong",
-    heroTitle: "Make your reading list listenable",
-    heroBody: "Turn web articles, practical blog posts, and course notes into a resumable learning trail. Keep listening during commutes, chores, or late-night review, then download the finished course for later.",
-    heroPills: ["Text import available now", "Download after generation", "Built for mobile learning"],
+    heroTitle: "A fragmented reader that turns saved content into downloadable audio courses",
+    heroBody: "Turn web articles, document, and course notes into a resumable learning trail. Keep listening during commutes, chores, or late-night review, then download the audio for later.",
     heroSignals: [
       {
         title: "Learning continues after the screen is off.",
-        body: "Pick up exactly where you stopped last time."
+        body: "Learning progress is saved, pick up exactly where you stopped last time."
       },
       {
         title: "Saved content no longer gets buried.",
@@ -456,8 +464,8 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
     },
     fitSection: {
       eyebrow: "Who it fits",
-      title: "Finishing content usually happens in moments like these",
-      description: "Not every learning session needs a desk, a full screen, and uninterrupted time. PageAlong is built to connect small pockets of time.",
+      title: "Listening through small pockets of time instead of reading in one long block",
+      description: "Not every learning session needs a desk, a full screen, and uninterrupted time. Any time and place can be used to finish the course in small pockets of time.",
       cards: [
         {
           title: "On the commute",
@@ -495,56 +503,59 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
     },
     differenceSection: {
       eyebrow: "What is different",
-      title: "Why not just use a reader, audio app, or clipping tool?",
-      description: "Those tools each solve one part of the problem, but they do not connect saved content to a resumable, downloadable learning flow.",
-      cards: [
+      title: "How is PageAlong different from a reader, an audio app, or a clipping tool?",
+      description: "PageAlong = Reader + Audio app + Clipping tool",
+      columns: ["Dimension", "Reader", "Audio app", "Clipping tool", "TTS plugin", "PageAlong"],
+      rows: [
         {
-          title: "Reader",
-          body: "Good for focused reading, but learning stops when you leave the screen.",
-          note: "It covers the part it is best at."
+          label: "Can you listen to it?",
+          cells: [
+            { value: "×" },
+            { value: "√" },
+            { value: "×" },
+            { value: "√" },
+            { value: "√" }
+          ]
         },
         {
-          title: "Audio app",
-          body: "Good for structured courses, but the content is not what you personally saved.",
-          note: "It covers the part it is best at."
+          label: "Can the content come from a web page or your own docs?",
+          cells: [
+            { value: "√" },
+            { value: "×" },
+            { value: "√" },
+            { value: "√" },
+            { value: "√" }
+          ]
         },
         {
-          title: "Clipping tool",
-          body: "Good for saving pages, but saved pages still wait for you to read them.",
-          note: "It covers the part it is best at."
+          label: "Can the audio be downloaded?",
+          cells: [
+            { value: "×" },
+            { value: "×", note: "May require payment" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         },
         {
-          title: "PageAlong",
-          body: "Turns your saved fragments into audio courses with resume and download support.",
-          note: "It fills the missing step between saving and listening.",
-          featured: true
-        }
-      ]
-    },
-    howSection: {
-      eyebrow: "How it works",
-      title: "Turn fragments into a course trail in four steps",
-      description: "Numbered steps are used only where the sequence matters. The point is how content becomes a trail you can keep listening to.",
-      steps: [
-        {
-          index: "01",
-          title: "Paste or import content",
-          body: "Start from an article, blog post, or course note."
+          label: "Can it be exported to PDF / Word / Markdown?",
+          cells: [
+            { value: "×", note: "May require payment" },
+            { value: "×" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         },
         {
-          index: "02",
-          title: "Organize it as a course record",
-          body: "Keep title, sections, and order in a clear structure."
-        },
-        {
-          index: "03",
-          title: "Generate a sentence timeline",
-          body: "Prepare the audio flow for resume and sentence-level positioning."
-        },
-        {
-          index: "04",
-          title: "Resume, replay, and download",
-          body: "Come back any time or keep the finished output locally."
+          label: "Does it support knowledge management?",
+          cells: [
+            { value: "√" },
+            { value: "×" },
+            { value: "×" },
+            { value: "×" },
+            { value: "√" }
+          ]
         }
       ]
     },
@@ -592,7 +603,7 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
           rows: [
             {
               title: "Audio",
-              meta: "Download after generation",
+              meta: "Save locally",
               badge: "Recommended",
               badgeTone: "green"
             },
@@ -611,11 +622,22 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       }
     },
     trialSection: {
-      eyebrow: "Free trial",
+      eyebrow: "Use for free",
       title: "Start with one article you have not managed to finish",
       description: "No need to plan a full learning system first. Pick one saved piece you keep postponing and see whether it can become your next audio course.",
-      note: "The current trial focuses on text import. Generated output can be downloaded after completion.",
-      secondaryCta: "Learn how it works"
+      secondaryCta: "See the comparison",
+      secondaryCtaHref: "#difference"
+    },
+    contactSection: {
+      eyebrow: "Contact",
+      title: "Send suggestions, bugs, or feature ideas directly",
+      description: "Feedback in the dashboard automatically includes your signed-in account email. The public site keeps a direct contact path here as well.",
+      emailLabel: "Email",
+      email: "juhuatang@outlook.com",
+      emailNote: "Best for feedback, follow-up, and collaborations.",
+      qqLabel: "QQ",
+      qq: "1640632344",
+      qqNote: "Use QQ if that is easier for you."
     }
   }
 };
@@ -661,12 +683,12 @@ function SectionHeader({
 
 function HeroScene({ copy }: { copy: HeroSceneCopy }) {
   return (
-    <div className="relative overflow-hidden rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 shadow-[0_14px_36px_rgba(31,26,20,0.06)] sm:p-5">
+    <div className="relative overflow-hidden rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 shadow-[0_14px_36px_rgba(17,17,17,0.06)] sm:p-5">
       <div className="relative grid gap-4 md:grid-cols-[minmax(0,0.92fr)_3rem_minmax(0,1.08fr)] md:items-center">
-        <SurfacePanel className="order-2 relative z-10 !bg-[#fcfaf5] w-full max-w-[94%] p-4 md:order-1 md:col-start-1 md:row-span-2 md:row-start-1 md:max-w-none">
+        <SurfacePanel className="order-2 relative z-10 !bg-[var(--pa-surface)] w-full max-w-[94%] p-4 md:order-1 md:col-start-1 md:row-span-2 md:row-start-1 md:max-w-none">
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-medium text-[var(--pa-green)]">{copy.libraryTitle}</p>
-            <span className="rounded-full border border-[rgba(47,111,94,0.18)] bg-[rgba(223,236,230,0.7)] px-2.5 py-1 text-[11px] text-[var(--pa-green)]">
+            <span className="rounded-full border border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] px-2.5 py-1 text-[11px] text-[var(--pa-green)]">
               {copy.libraryCount}
             </span>
           </div>
@@ -689,7 +711,7 @@ function HeroScene({ copy }: { copy: HeroSceneCopy }) {
         <div className="order-4 relative hidden h-full min-h-[250px] flex-col items-center justify-center gap-3 md:order-2 md:col-start-2 md:row-span-2 md:row-start-1 md:flex">
           <span className="h-3 w-3 rounded-full bg-[var(--pa-green)] ring-4 ring-[var(--pa-green-soft)]" />
           <span className="h-16 w-px bg-[var(--pa-line)]" />
-          <span className="rounded-full border border-[rgba(47,111,94,0.2)] bg-[rgba(223,236,230,0.82)] px-2 py-3 text-[11px] font-medium text-[var(--pa-green)] [writing-mode:vertical-rl]">
+          <span className="rounded-full border border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] px-2 py-3 text-[11px] font-medium text-[var(--pa-green)] [writing-mode:vertical-rl]">
             {copy.connectorLabel}
           </span>
           <span className="h-16 w-px bg-[var(--pa-line)]" />
@@ -700,42 +722,42 @@ function HeroScene({ copy }: { copy: HeroSceneCopy }) {
             <p className="text-sm font-medium text-[var(--pa-ink)]">{copy.playerTitle}</p>
             <span className="text-xs text-[var(--pa-muted)]">{copy.playerTime}</span>
           </div>
-          <div className="mt-4 rounded-md border border-[rgba(201,138,46,0.16)] bg-[var(--pa-amber-soft)] p-4">
+          <div className="mt-4 rounded-md border border-[var(--pa-amber-soft)] bg-[var(--pa-amber-soft)] p-4">
             <p className="text-sm leading-7 text-[var(--pa-ink)]">{copy.highlightedSentence}</p>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-            <span className="inline-flex w-fit rounded-full border border-[rgba(201,138,46,0.18)] bg-[rgba(255,255,255,0.78)] px-2.5 py-1 text-xs font-medium text-[var(--pa-amber)]">
+            <span className="inline-flex w-fit rounded-full border border-[var(--pa-amber-soft)] bg-[var(--pa-surface)] px-2.5 py-1 text-xs font-medium text-[var(--pa-amber)]">
               {copy.speed}
             </span>
-            <div className="h-2 rounded-full bg-[rgba(201,138,46,0.16)]">
+            <div className="h-2 rounded-full bg-[var(--pa-amber-soft)]">
               <div className="h-full w-[64%] rounded-full bg-[var(--pa-amber)]" />
             </div>
             <span className="text-xs text-[var(--pa-muted)]">{copy.resumable}</span>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="rounded-full border border-[rgba(221,210,193,0.9)] bg-[rgba(255,253,248,0.92)] px-3 py-1 text-xs text-[var(--pa-muted)]">
+            <span className="rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-1 text-xs text-[var(--pa-muted)]">
               {copy.downloadAudio}
             </span>
-            <span className="rounded-full border border-[rgba(221,210,193,0.9)] bg-[rgba(255,253,248,0.92)] px-3 py-1 text-xs text-[var(--pa-muted)]">
+            <span className="rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-1 text-xs text-[var(--pa-muted)]">
               {copy.downloadText}
             </span>
           </div>
         </SurfacePanel>
 
-        <SurfacePanel className="order-3 relative z-10 !bg-[#fcfaf5] w-full max-w-[88%] p-4 md:order-4 md:col-start-3 md:row-start-2 md:max-w-none">
+        <SurfacePanel className="order-3 relative z-10 !bg-[var(--pa-surface)] w-full max-w-[88%] p-4 md:order-4 md:col-start-3 md:row-start-2 md:max-w-none">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-[var(--pa-ink)]">{copy.downloadTitle}</p>
               <p className="mt-1 text-xs leading-5 text-[var(--pa-muted)]">{copy.downloadBody}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full border border-[rgba(47,111,94,0.22)] bg-[rgba(223,236,230,0.85)] px-3 py-1 text-xs font-medium text-[var(--pa-green)]">
+              <span className="rounded-full border border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] px-3 py-1 text-xs font-medium text-[var(--pa-green)]">
                 {copy.audioLabel}
               </span>
-              <span className="rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.9)] px-3 py-1 text-xs text-[var(--pa-muted)]">
+              <span className="rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-1 text-xs text-[var(--pa-muted)]">
                 {copy.markdownLabel}
               </span>
-              <span className="rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.9)] px-3 py-1 text-xs text-[var(--pa-muted)]">
+              <span className="rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-1 text-xs text-[var(--pa-muted)]">
                 {copy.wordLabel}
               </span>
             </div>
@@ -760,12 +782,12 @@ function FitSceneCard({
       <p className="text-sm font-medium text-[var(--pa-green)]">{title}</p>
       <p className="mt-3 text-base leading-7 text-[var(--pa-ink)]">{body}</p>
       <div className="mt-auto pt-5">
-        <div className="rounded-md border border-[var(--pa-line)] bg-[#fcfaf5] p-3">
+        <div className="rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3">
           <div className="flex items-center justify-between gap-3 text-xs text-[var(--pa-muted)]">
             <span>{progressLabel}</span>
             <span>{speed}</span>
           </div>
-          <div className="mt-3 h-1.5 rounded-full bg-[rgba(201,138,46,0.16)]">
+          <div className="mt-3 h-1.5 rounded-full bg-[var(--pa-amber-soft)]">
             <div className="h-full rounded-full bg-[var(--pa-amber)]" style={{ width: progress }} />
           </div>
           <p className="mt-3 text-xs leading-5 text-[var(--pa-muted)]">{sentence}</p>
@@ -775,48 +797,55 @@ function FitSceneCard({
   );
 }
 
-function ComparisonCard({ title, body, note, featured = false }: ComparisonCardData) {
+function ComparisonTable({ columns, rows }: { columns: string[]; rows: ComparisonRow[] }) {
   return (
-    <SurfacePanel
-      className={[
-        "min-h-[180px] p-5",
-        featured
-          ? "!border-[rgba(47,111,94,0.28)] !bg-[rgba(223,236,230,0.22)] shadow-[0_12px_30px_rgba(47,111,94,0.08)]"
-          : "bg-[#fcfaf5]"
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-base font-semibold text-[var(--pa-ink)]">{title}</p>
-        {featured ? (
-          <span className="rounded-full border border-[rgba(47,111,94,0.2)] bg-[rgba(223,236,230,0.86)] px-2.5 py-1 text-[11px] font-medium text-[var(--pa-green)]">
-            PageAlong
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-4 text-sm leading-7 text-[var(--pa-muted)]">{body}</p>
-      {featured ? (
-        <div className="mt-5 h-px bg-[rgba(47,111,94,0.18)]" />
-      ) : (
-        <div className="mt-5 h-px bg-[rgba(221,210,193,0.65)]" />
-      )}
-      <p className="mt-4 text-xs leading-5 text-[var(--pa-muted)]">{note}</p>
-    </SurfacePanel>
-  );
-}
-
-function StepCard({ index, title, body }: StepCardData) {
-  return (
-    <SurfacePanel className="min-h-[200px] p-5">
-      <div className="flex items-start gap-3">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[rgba(47,111,94,0.2)] bg-[rgba(223,236,230,0.78)] text-sm font-semibold text-[var(--pa-green)]">
-          {index}
-        </span>
-        <div className="min-w-0">
-          <p className="text-base font-semibold text-[var(--pa-ink)]">{title}</p>
-          <p className="mt-3 text-sm leading-7 text-[var(--pa-muted)]">{body}</p>
-        </div>
-      </div>
-    </SurfacePanel>
+    <div className="overflow-x-auto rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)]">
+      <table className="min-w-[900px] w-full border-collapse">
+        <thead>
+          <tr className="bg-[var(--pa-muted-surface)]">
+            {columns.map((column, index) => (
+              <th
+                key={column}
+                className={[
+                  "border-b border-[var(--pa-line)] px-4 py-3 text-left text-xs font-medium text-[var(--pa-muted)]",
+                  index === 0 ? "w-[22rem]" : "text-center",
+                  index === columns.length - 1 ? "bg-[var(--pa-green-soft)] text-[var(--pa-green)]" : ""
+                ].join(" ")}
+                scope="col"
+              >
+                {column}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} className="align-top">
+              <th
+                className="border-b border-[var(--pa-line)] px-4 py-4 text-left text-sm font-medium text-[var(--pa-ink)]"
+                scope="row"
+              >
+                {row.label}
+              </th>
+              {row.cells.map((cell, index) => (
+                <td
+                  key={`${row.label}-${columns[index + 1] ?? index}`}
+                  className={[
+                    "border-b border-[var(--pa-line)] px-4 py-4 text-center text-sm text-[var(--pa-ink)]",
+                    index === row.cells.length - 1 ? "bg-[var(--pa-green-soft)] font-medium" : ""
+                  ].join(" ")}
+                >
+                  <div className="flex min-h-[3rem] flex-col items-center justify-center gap-1">
+                    <span>{cell.value}</span>
+                    {cell.note ? <span className="text-[11px] leading-4 text-[var(--pa-muted)]">{cell.note}</span> : null}
+                  </div>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -840,7 +869,7 @@ function PreviewPanel({
           </p>
           <p className="mt-2 text-lg font-semibold text-[var(--pa-ink)]">{title}</p>
         </div>
-        <span className="rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.9)] px-2.5 py-1 text-[11px] text-[var(--pa-muted)]">
+        <span className="rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] px-2.5 py-1 text-[11px] text-[var(--pa-muted)]">
           {badge}
         </span>
       </div>
@@ -851,7 +880,7 @@ function PreviewPanel({
 
 function PreviewRowCard({ row }: { row: PreviewRow }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--pa-line)] bg-[#fcfaf5] px-3 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-2.5">
       <div>
         <p className="text-sm font-medium text-[var(--pa-ink)]">{row.title}</p>
         <p className="mt-1 text-xs text-[var(--pa-muted)]">{row.meta}</p>
@@ -860,8 +889,8 @@ function PreviewRowCard({ row }: { row: PreviewRow }) {
         className={[
           "rounded-full border px-2.5 py-1 text-[11px]",
           row.badgeTone === "green"
-            ? "border-[rgba(47,111,94,0.18)] bg-[rgba(223,236,230,0.72)] text-[var(--pa-green)]"
-            : "border-[var(--pa-line)] bg-[rgba(255,253,248,0.9)] text-[var(--pa-muted)]"
+            ? "border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] text-[var(--pa-green)]"
+            : "border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-muted)]"
         ].join(" ")}
       >
         {row.badge}
@@ -877,62 +906,23 @@ export default function HomePage({
 }) {
   const locale = normalizeHomeLocale(searchParams?.lang);
   const copy = homeCopies[locale];
+  const localeLinks = {
+    zh: marketingHref("/", "zh"),
+    en: marketingHref("/", "en")
+  } satisfies Record<HomeLocale, string>;
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[var(--pa-bg)] text-[var(--pa-ink)]">
-      <header className="sticky top-0 z-30 border-b border-[rgba(221,210,193,0.84)] bg-[rgba(247,242,232,0.92)] backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center justify-between gap-3">
-              <Link href="#top" className="pa-focus min-w-0">
-                <span className="block text-sm font-semibold text-[var(--pa-ink)]">{copy.brandPrimary}</span>
-                <span className="mt-0.5 block text-[11px] text-[var(--pa-muted)]">{copy.brandSecondary}</span>
-              </Link>
-              <div className="flex shrink-0 items-center gap-2">
-                <Link
-                  href={copy.switchHref}
-                  className="pa-focus rounded-md border border-[var(--pa-line)] bg-[rgba(255,253,248,0.88)] px-3 py-2 text-sm font-medium text-[var(--pa-muted)] transition hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]"
-                  aria-label={`Switch language: ${copy.switchLabel}`}
-                >
-                  {copy.switchLabel}
-                </Link>
-                <Link
-                  href={copy.appHref}
-                  className="pa-focus rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white shadow-[0_6px_18px_rgba(47,111,94,0.16)]"
-                >
-                  {copy.primaryCta}
-                </Link>
-              </div>
-            </div>
-            <nav className="hidden items-center gap-2 md:flex" aria-label={copy.navAria}>
-              {copy.navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="pa-focus rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.88)] px-3 py-1.5 text-sm text-[var(--pa-muted)] transition hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </div>
-          <nav
-            className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden"
-            aria-label={copy.mobileNavAria}
-          >
-            {copy.navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="pa-focus shrink-0 rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.88)] px-3 py-1.5 text-xs text-[var(--pa-muted)]"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </header>
-
+    <SiteChrome
+      locale={locale}
+      homeHref={localeLinks[locale]}
+      brandPrimary={copy.brandPrimary}
+      brandSecondary={copy.brandSecondary}
+      navLinks={copy.navLinks}
+      localeLinks={localeLinks}
+      primaryCta={{ href: copy.appHref, label: copy.primaryCta }}
+      footerLinks={marketingFooterLinks(locale)}
+      footerNote={marketingFooterNote[locale]}
+    >
       <section id="top" className="scroll-mt-24">
         <div className="mx-auto max-w-7xl px-4 pb-12 pt-10 sm:px-6 lg:px-8 lg:pb-16 lg:pt-14">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1.04fr)_minmax(0,0.96fr)] lg:items-center">
@@ -947,33 +937,23 @@ export default function HomePage({
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href={copy.appHref}
-                  className="pa-focus rounded-md bg-[var(--pa-green)] px-5 py-3 text-center text-sm font-medium text-white shadow-[0_8px_20px_rgba(47,111,94,0.16)]"
+                  className="pa-focus rounded-md bg-[var(--pa-green)] px-5 py-3 text-center text-sm font-medium text-white shadow-[0_8px_20px_rgba(17,17,17,0.12)]"
                 >
                   {copy.primaryCta}
                 </Link>
                 <Link
                   href="#fit"
-                  className="pa-focus rounded-md border border-[var(--pa-line)] bg-[rgba(255,253,248,0.88)] px-5 py-3 text-center text-sm font-medium text-[var(--pa-ink)]"
+                  className="pa-focus rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-5 py-3 text-center text-sm font-medium text-[var(--pa-ink)]"
                 >
                   {copy.secondaryCta}
                 </Link>
-              </div>
-              <div className="mt-8 flex flex-wrap gap-3">
-                {copy.heroPills.map((pill) => (
-                  <span
-                    key={pill}
-                    className="rounded-full border border-[var(--pa-line)] bg-[rgba(255,253,248,0.86)] px-3 py-1 text-xs text-[var(--pa-muted)]"
-                  >
-                    {pill}
-                  </span>
-                ))}
               </div>
             </div>
 
             <HeroScene copy={copy.heroScene} />
           </div>
 
-          <div className="mt-12 grid gap-3 border-t border-[rgba(221,210,193,0.76)] pt-5 sm:grid-cols-3">
+          <div className="mt-12 grid gap-3 border-t border-[var(--pa-line)] pt-5 sm:grid-cols-3">
             {copy.heroSignals.map((signal) => (
               <SurfacePanel key={signal.title} className="p-4">
                 <p className="text-sm font-medium text-[var(--pa-ink)]">{signal.title}</p>
@@ -984,7 +964,7 @@ export default function HomePage({
         </div>
       </section>
 
-      <section id="fit" className="scroll-mt-24 border-t border-[rgba(221,210,193,0.76)]">
+      <section id="fit" className="scroll-mt-24 border-t border-[var(--pa-line)]">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow={copy.fitSection.eyebrow}
@@ -999,37 +979,20 @@ export default function HomePage({
         </div>
       </section>
 
-      <section id="difference" className="scroll-mt-24 border-t border-[rgba(221,210,193,0.76)]">
+      <section id="difference" className="scroll-mt-24 border-t border-[var(--pa-line)]">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow={copy.differenceSection.eyebrow}
             title={copy.differenceSection.title}
             description={copy.differenceSection.description}
           />
-          <div className="mt-8 grid gap-4 xl:grid-cols-4">
-            {copy.differenceSection.cards.map((card) => (
-              <ComparisonCard key={card.title} {...card} />
-            ))}
+          <div className="mt-8">
+            <ComparisonTable columns={copy.differenceSection.columns} rows={copy.differenceSection.rows} />
           </div>
         </div>
       </section>
 
-      <section id="how" className="scroll-mt-24 border-t border-[rgba(221,210,193,0.76)]">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
-          <SectionHeader
-            eyebrow={copy.howSection.eyebrow}
-            title={copy.howSection.title}
-            description={copy.howSection.description}
-          />
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {copy.howSection.steps.map((step) => (
-              <StepCard key={step.index} {...step} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="preview" className="scroll-mt-24 border-t border-[rgba(221,210,193,0.76)]">
+      <section id="preview" className="scroll-mt-24 border-t border-[var(--pa-line)]">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <SectionHeader
             eyebrow={copy.previewSection.eyebrow}
@@ -1054,25 +1017,25 @@ export default function HomePage({
               title={copy.previewSection.preview.player.title}
               badge={copy.previewSection.preview.badge}
             >
-              <div className="rounded-md border border-[var(--pa-line)] bg-[#fcfaf5] p-4">
+              <div className="rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-medium text-[var(--pa-ink)]">
                     {copy.previewSection.preview.player.status}
                   </p>
                   <p className="text-xs text-[var(--pa-muted)]">{copy.previewSection.preview.player.time}</p>
                 </div>
-                <div className="mt-4 rounded-md border border-[rgba(201,138,46,0.16)] bg-[var(--pa-amber-soft)] p-4">
+                <div className="mt-4 rounded-md border border-[var(--pa-amber-soft)] bg-[var(--pa-amber-soft)] p-4">
                   <p className="text-sm leading-7 text-[var(--pa-ink)]">
                     {copy.previewSection.preview.player.highlightedSentence}
                   </p>
                 </div>
                 <div className="mt-4 flex items-center justify-between gap-3 text-xs text-[var(--pa-muted)]">
-                  <span className="rounded-full border border-[rgba(201,138,46,0.18)] bg-[rgba(255,255,255,0.78)] px-2.5 py-1 font-medium text-[var(--pa-amber)]">
+                  <span className="rounded-full border border-[var(--pa-amber-soft)] bg-[var(--pa-surface)] px-2.5 py-1 font-medium text-[var(--pa-amber)]">
                     {copy.previewSection.preview.player.speed}
                   </span>
                   <span>{copy.previewSection.preview.player.timeline}</span>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-[rgba(201,138,46,0.16)]">
+                <div className="mt-3 h-2 rounded-full bg-[var(--pa-amber-soft)]">
                   <div className="h-full w-[58%] rounded-full bg-[var(--pa-amber)]" />
                 </div>
                 <p className="mt-4 text-xs leading-5 text-[var(--pa-muted)]">
@@ -1096,7 +1059,7 @@ export default function HomePage({
         </div>
       </section>
 
-      <section id="trial" className="scroll-mt-24 border-t border-[rgba(221,210,193,0.76)]">
+      <section id="trial" className="scroll-mt-24 border-t border-[var(--pa-line)]">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl">
@@ -1107,18 +1070,17 @@ export default function HomePage({
               <p className="mt-3 text-sm leading-7 text-[var(--pa-muted)] sm:text-base">
                 {copy.trialSection.description}
               </p>
-              <p className="mt-4 text-xs leading-5 text-[var(--pa-muted)]">{copy.trialSection.note}</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href={copy.appHref}
-                className="pa-focus rounded-md bg-[var(--pa-green)] px-5 py-3 text-center text-sm font-medium text-white shadow-[0_8px_20px_rgba(47,111,94,0.16)]"
+                className="pa-focus rounded-md bg-[var(--pa-green)] px-5 py-3 text-center text-sm font-medium text-white shadow-[0_8px_20px_rgba(17,17,17,0.12)]"
               >
                 {copy.primaryCta}
               </Link>
               <Link
-                href="#how"
-                className="pa-focus rounded-md border border-[var(--pa-line)] bg-[rgba(255,253,248,0.88)] px-5 py-3 text-center text-sm font-medium text-[var(--pa-ink)]"
+                href={copy.trialSection.secondaryCtaHref}
+                className="pa-focus rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-5 py-3 text-center text-sm font-medium text-[var(--pa-ink)]"
               >
                 {copy.trialSection.secondaryCta}
               </Link>
@@ -1126,6 +1088,43 @@ export default function HomePage({
           </div>
         </div>
       </section>
-    </main>
+
+      <section id="contact" className="scroll-mt-24 border-t border-[var(--pa-line)]">
+        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+          <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+            <div className="max-w-2xl">
+              <p className="text-sm font-medium text-[var(--pa-green)]">{copy.contactSection.eyebrow}</p>
+              <h2 className="mt-3 text-2xl font-semibold leading-tight text-[var(--pa-ink)] sm:text-3xl">
+                {copy.contactSection.title}
+              </h2>
+              <p className="mt-3 text-sm leading-7 text-[var(--pa-muted)] sm:text-base">
+                {copy.contactSection.description}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <SurfacePanel className="p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--pa-green)]">
+                  {copy.contactSection.emailLabel}
+                </p>
+                <a
+                  className="mt-3 block text-sm font-medium text-[var(--pa-ink)] transition hover:text-[var(--pa-green)]"
+                  href={`mailto:${copy.contactSection.email}`}
+                >
+                  {copy.contactSection.email}
+                </a>
+                <p className="mt-2 text-xs leading-5 text-[var(--pa-muted)]">{copy.contactSection.emailNote}</p>
+              </SurfacePanel>
+              <SurfacePanel className="p-4">
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--pa-green)]">
+                  {copy.contactSection.qqLabel}
+                </p>
+                <p className="mt-3 text-sm font-medium text-[var(--pa-ink)]">{copy.contactSection.qq}</p>
+                <p className="mt-2 text-xs leading-5 text-[var(--pa-muted)]">{copy.contactSection.qqNote}</p>
+              </SurfacePanel>
+            </div>
+          </div>
+        </div>
+      </section>
+    </SiteChrome>
   );
 }

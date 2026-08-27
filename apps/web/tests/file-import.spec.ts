@@ -31,6 +31,34 @@ test.beforeEach(async ({ page }) => {
     }
     await route.fulfill({ status: 200, headers: apiHeaders, body: JSON.stringify(authUser) });
   });
+
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/me\/preferences$/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: apiHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({ theme_id: "newspaper", background_color: "white" })
+    });
+  });
+});
+
+test("import landing page stacks the four choices vertically", async ({ page }) => {
+  await page.goto("/zh/import");
+
+  const labels = ["粘贴文本", "网页导入", "文件上传", "浏览器插件"];
+  const boxes = [];
+  for (const label of labels) {
+    const box = await page.getByRole("link", { name: label }).boundingBox();
+    expect(box).not.toBeNull();
+    boxes.push(box!);
+  }
+
+  expect(boxes[0].y).toBeLessThan(boxes[1].y);
+  expect(boxes[1].y).toBeLessThan(boxes[2].y);
+  expect(boxes[2].y).toBeLessThan(boxes[3].y);
 });
 
 test("file upload import reports per-file failures and keeps successful files", async ({ page }) => {
@@ -135,7 +163,7 @@ test("file upload import reports per-file failures and keeps successful files", 
   });
 
   await page.goto("/zh/import/file");
-  await expect(page.getByRole("heading", { name: "文件上传" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "多文件" })).toBeVisible();
   await page.getByRole("button", { name: "多文件" }).click();
   await page.setInputFiles('input[type="file"]', [
     { name: "ok.txt", mimeType: "text/plain", buffer: Buffer.from("第一句。第二句。") },

@@ -113,7 +113,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
             <p className="mt-1 font-medium text-[var(--pa-ink)]">{formatDate(user?.last_login_at ?? null, locale)}</p>
           </div>
         </div>
-        <div className="rounded-md border border-[var(--pa-line)] bg-[rgba(47,111,94,0.04)] p-4">
+        <div className="rounded-md border border-[var(--pa-line)] bg-[var(--pa-muted-surface)] p-4">
           <h2 className="text-base font-semibold text-[var(--pa-ink)]">{dictionary.auth.changePassword}</h2>
           <form className="mt-4 grid gap-3 sm:grid-cols-3" onSubmit={submitPasswordChange}>
             <input
@@ -140,7 +140,7 @@ export default function AccountPage({ params }: { params: { locale: string } }) 
               type="password"
               value={confirmPassword}
             />
-            {error ? <p className="sm:col-span-3 text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="sm:col-span-3 text-sm text-[var(--pa-error)]">{error}</p> : null}
             {message ? <p className="sm:col-span-3 text-sm text-[var(--pa-green)]">{message}</p> : null}
             <button
               className="pa-focus h-11 rounded-md bg-[var(--pa-green)] px-4 text-sm text-white disabled:opacity-50"

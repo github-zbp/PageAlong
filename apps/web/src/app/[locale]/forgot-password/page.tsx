@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
+import { AuthPageShell } from "@/components/AuthPageShell";
 import { confirmPasswordReset, requestPasswordResetCode } from "@/lib/api";
-import { dictionaries, normalizeLocale } from "@/lib/i18n";
+import { dictionaries, homepageHref, normalizeLocale, type Locale } from "@/lib/i18n";
+import { importTextHref, marketingFooterLinks, marketingFooterNote, marketingNavLinks } from "@/lib/site";
 
 export default function ForgotPasswordPage({ params }: { params: { locale: string } }) {
   const locale = normalizeLocale(params.locale);
   const dictionary = dictionaries[locale];
+  const localeLinks = {
+    zh: "/zh/forgot-password",
+    en: "/en/forgot-password"
+  } satisfies Record<Locale, string>;
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,7 +47,19 @@ export default function ForgotPasswordPage({ params }: { params: { locale: strin
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-md items-center px-4 py-8">
+    <AuthPageShell
+      locale={locale}
+      homeHref={homepageHref(locale)}
+      brandPrimary={dictionary.brand}
+      brandSecondary={dictionary.brandSubtitle}
+      navLinks={marketingNavLinks(locale)}
+      localeLinks={localeLinks}
+      primaryCta={{ href: importTextHref(locale), label: locale === "zh" ? "免费使用" : "Use for free" }}
+      footerLinks={marketingFooterLinks(locale)}
+      footerNote={marketingFooterNote[locale]}
+      backHref={homepageHref(locale)}
+      backLabel={dictionary.auth.backToHome}
+    >
       <section className="w-full rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-6">
         <h1 className="text-2xl font-semibold text-[var(--pa-ink)]">{dictionary.auth.forgotPasswordTitle}</h1>
         <p className="mt-2 text-sm text-[var(--pa-muted)]">{dictionary.auth.resetPrompt}</p>
@@ -82,7 +100,7 @@ export default function ForgotPasswordPage({ params }: { params: { locale: strin
             />
           </label>
           {message ? <p className="text-sm text-[var(--pa-green)]">{message}</p> : null}
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-[var(--pa-error)]">{error}</p> : null}
           <button
             className="pa-focus flex h-11 w-full items-center justify-center rounded-md bg-[var(--pa-green)] px-4 text-sm font-medium text-white"
             disabled={loading}
@@ -97,6 +115,6 @@ export default function ForgotPasswordPage({ params }: { params: { locale: strin
           </Link>
         </div>
       </section>
-    </main>
+    </AuthPageShell>
   );
 }

@@ -20,6 +20,14 @@ class JobType(str, enum.Enum):
     URL_IMPORT = "url_import"
     TTS_GENERATE = "tts_generate"
     AUDIO_CONCAT = "audio_concat"
+    COURSE_EXPORT_MARKDOWN = "course_export_markdown"
+    COURSE_EXPORT_DOCX = "course_export_docx"
+    COURSE_EXPORT_PDF = "course_export_pdf"
+
+
+class JobTargetType(str, enum.Enum):
+    COURSE = "course"
+    RESOURCE = "resource"
 
 
 class GenerationJob(Base):
@@ -27,6 +35,8 @@ class GenerationJob(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     course_id: Mapped[str] = mapped_column(ForeignKey("courses.id"), index=True)
+    target_type: Mapped[str] = mapped_column(String(64), default=JobTargetType.COURSE.value)
+    target_id: Mapped[str] = mapped_column(String(36), default="")
     job_type: Mapped[JobType] = mapped_column(Enum(JobType))
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.PENDING)
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -43,6 +53,7 @@ class GenerationJob(Base):
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     progress_current: Mapped[int] = mapped_column(Integer, default=0)
     progress_total: Mapped[int] = mapped_column(Integer, default=0)
+    result_resource_id: Mapped[str | None] = mapped_column(ForeignKey("file_resources.id"), nullable=True, index=True)
     error_code: Mapped[str | None] = mapped_column(String(128), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -56,6 +67,10 @@ class GenerationJob(Base):
             self.status = JobStatus.PENDING
         if self.attempt_count is None:
             self.attempt_count = 0
+        if self.target_type is None:
+            self.target_type = JobTargetType.COURSE.value
+        if self.target_id is None:
+            self.target_id = self.course_id or ""
         if self.speed_factor is None:
             self.speed_factor = 1.0
         if self.input_json is None:

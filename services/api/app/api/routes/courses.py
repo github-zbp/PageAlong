@@ -3,8 +3,8 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -39,6 +39,7 @@ from app.schemas.course import (
     TagRead,
     TagUpdate,
 )
+from app.schemas.job import DownloadRequestRead
 from app.schemas.file_import import FileImportBatchRead, FileImportItemRead
 from app.schemas.playback import PlaybackProgressRead, PlaybackProgressUpdate
 from app.services.content_metrics import (
@@ -51,12 +52,14 @@ from app.services.course_export_service import CourseExportService, safe_filenam
 from app.services.file_import_service import FileImportService, FileImportUploadInput
 from app.services.url_import_service import ExtensionImageInput, ExtensionSyncInput, ImportUrlInput, UrlImportService
 from app.services.course_service import (
+    AudioGenerationQueueUnavailable,
     active_series_courses,
     course_is_starred,
     course_library_type,
     course_tags,
     create_retry_job_for_failed_stage,
     create_text_course,
+    delete_course_with_resources,
     get_or_create_series,
     delete_series_with_courses,
     decode_tags,
@@ -69,7 +72,10 @@ from app.services.course_service import (
     update_course_library,
     update_series_metadata,
 )
+from app.services.file_resource_service import FileResourceService
+from app.services.pagination import paginate_sequence
 from app.services.tag_service import TagAlreadyExistsError, TagNotFoundError, create_tag, delete_tag, get_tag_by_id, update_tag
+from app.services.job_service import request_course_download
 from app.services.tts_limits import TTSGenerationLimitExceeded
 from app.worker_client import enqueue_audio_generation, enqueue_file_import, enqueue_url_import
 
@@ -145,16 +151,35 @@ def is_absolute_http_url(value: str | None) -> bool:
     return bool(value and value.lower().startswith(("http://", "https://")))
 
 
-def current_audio_url_for_course(course: Course) -> str | None:
+def current_audio_url_for_course(db: Session, course: Course, fallback_path: str | None = None) -> str | None:
     if course.status != CourseStatus.READY or course.current_audio_asset_id is None:
-        return None
+        if course.current_audio_resource_id is None:
+            return None
+    resource_service = FileResourceService(db)
+    if course.current_audio_resource_id is not None:
+        resource = resource_service.get_resource(course.current_audio_resource_id)
+        if resource is not None and resource.status.value == "ready":
+            return resource_service.resource_download_url(
+                resource,
+                fallback_path=fallback_path or f"/courses/{course.id}/audio",
+            )
     current_asset = next(
         (asset for asset in course.audio_assets if asset.id == course.current_audio_asset_id and asset.is_current),
         None,
     )
-    if current_asset is not None and is_absolute_http_url(current_asset.object_path):
-        return current_asset.object_path
-    return f"/courses/{course.id}/audio"
+    if current_asset is not None:
+        if is_absolute_http_url(current_asset.object_path):
+            return current_asset.object_path
+        if current_asset.resource_id is not None:
+            resource = resource_service.get_resource(current_asset.resource_id)
+            if resource is not None and resource.status.value == "ready":
+                return resource_service.resource_download_url(
+                    resource,
+                    fallback_path=fallback_path or f"/courses/{course.id}/audio",
+                )
+    if course.status == CourseStatus.READY:
+        return fallback_path or f"/courses/{course.id}/audio"
+    return None
 
 
 def attachment_disposition(filename: str) -> str:
@@ -249,7 +274,7 @@ def serialize_course(course: Course, db: Session | None = None) -> CourseRead:
     )
     display_word_count = text_metric.count
     import_error_message = import_job.error_message if import_job is not None else None
-    current_audio_url = current_audio_url_for_course(course)
+    current_audio_url = current_audio_url_for_course(db, course) if db is not None else None
     return CourseRead(
         id=course.id,
         title=course.title,
@@ -314,7 +339,7 @@ def sentence_counts_for_courses(db: Session, course_ids: list[str]) -> dict[str,
     return {course_id: int(sentence_count) for course_id, sentence_count in rows}
 
 
-def serialize_course_summary(course: Course, sentence_count: int) -> CourseSummaryRead:
+def serialize_course_summary(course: Course, sentence_count: int, db: Session | None = None) -> CourseSummaryRead:
     return CourseSummaryRead(
         id=course.id,
         title=course.title,
@@ -324,9 +349,9 @@ def serialize_course_summary(course: Course, sentence_count: int) -> CourseSumma
         word_count_unit="characters",
         estimated_reading_seconds=estimate_reading_seconds(course.word_count, CHINESE_READING_CHARS_PER_MINUTE),
         duration_seconds=course.duration_seconds,
-        current_audio_url=f"/courses/{course.id}/audio"
-        if course.status == CourseStatus.READY and course.current_audio_asset_id is not None
-        else None,
+        current_audio_url=current_audio_url_for_course(db, course, fallback_path=f"/courses/{course.id}/audio") if db is not None else (
+            f"/courses/{course.id}/audio" if course.status == CourseStatus.READY and course.current_audio_asset_id is not None else None
+        ),
         last_playback_position_seconds=course.last_playback_position_seconds,
         library_type=course_library_type(course),
         series_id=course.series_id,
@@ -409,6 +434,8 @@ def create_course(
         request_audio_generation(db, course)
     except TTSGenerationLimitExceeded:
         db.refresh(course)
+    except AudioGenerationQueueUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Audio generation queue is unavailable") from exc
     return serialize_course(course, db)
 
 
@@ -552,6 +579,8 @@ def get_courses(
     query: str | None = None,
     tag: str | None = None,
     starred: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ) -> CourseList:
@@ -566,12 +595,14 @@ def get_courses(
         tag=tag,
         starred=starred,
     )
-    sentence_counts = sentence_counts_for_courses(db, [course.id for course in courses])
+    paginated_courses, pagination = paginate_sequence(courses, page, page_size)
+    sentence_counts = sentence_counts_for_courses(db, [course.id for course in paginated_courses])
     return CourseList(
         items=[
-            serialize_course_summary(course, sentence_counts.get(course.id, 0))
-            for course in courses
-        ]
+            serialize_course_summary(course, sentence_counts.get(course.id, 0), db)
+            for course in paginated_courses
+        ],
+        pagination=pagination,
     )
 
 
@@ -580,14 +611,19 @@ def get_course_series(
     query: str | None = None,
     tag: str | None = None,
     starred: bool | None = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ) -> CourseSeriesList:
+    series_items = list_series(db, user_id, query=query, tag=tag, starred=starred)
+    paginated_series, pagination = paginate_sequence(series_items, page, page_size)
     return CourseSeriesList(
         items=[
             serialize_series(series)
-            for series in list_series(db, user_id, query=query, tag=tag, starred=starred)
-        ]
+            for series in paginated_series
+        ],
+        pagination=pagination,
     )
 
 
@@ -606,6 +642,8 @@ def create_course_series(
     )
     if series is None:
         raise HTTPException(status_code=422, detail="Series title is required")
+    db.commit()
+    db.refresh(series)
     return serialize_series(series)
 
 
@@ -813,6 +851,31 @@ def export_course_content(
     )
 
 
+@router.post("/{course_id}/downloads/{export_format}")
+def request_course_download_route(
+    course_id: str,
+    export_format: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> Response:
+    course = get_user_course_or_404(db, user_id, course_id)
+    try:
+        result = request_course_download(db, course, export_format)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AudioGenerationQueueUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Audio generation queue is unavailable") from exc
+    payload = DownloadRequestRead(
+        status=result.status,  # type: ignore[arg-type]
+        job_id=result.job_id,
+        job_type=result.job_type or "",
+        resource_id=result.resource_id,
+        download_url=result.download_url,
+        message=result.message,
+    )
+    return JSONResponse(status_code=200 if result.status == "ready" else 202, content=payload.model_dump())
+
+
 @router.post("/{course_id}/audio-generation", response_model=GenerationJobRead, status_code=status.HTTP_202_ACCEPTED)
 def retry_course_audio_generation(
     course_id: str,
@@ -824,6 +887,8 @@ def retry_course_audio_generation(
         job = request_audio_generation(db, course)
     except TTSGenerationLimitExceeded as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AudioGenerationQueueUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Audio generation queue is unavailable") from exc
     return serialize_generation_job(job)
 
 
@@ -1047,7 +1112,5 @@ def delete_course(
     user_id: str = Depends(get_current_user_id),
 ) -> Response:
     course = get_user_course_or_404(db, user_id, course_id)
-    course.is_deleted = True
-    course.status = CourseStatus.DELETED
-    db.commit()
+    delete_course_with_resources(db, course)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

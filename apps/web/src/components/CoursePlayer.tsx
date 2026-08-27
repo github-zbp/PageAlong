@@ -6,14 +6,14 @@ import { formatDuration } from "@/lib/format";
 import { dictionaries, type Locale } from "@/lib/i18n";
 import {
   defaultReaderPreferences,
+  READER_PREFERENCES_UPDATED_EVENT,
   readReaderPreferences,
   updateReaderPreferences,
-  type ReaderFontSize,
-  type ReaderLineHeight,
   type ReaderPreferences
 } from "@/lib/reader-preferences";
 import type { Course, Sentence } from "@/lib/types";
 import { MarkdownReader } from "./MarkdownReader";
+import { ReaderPreferencesControls } from "./ReaderPreferencesControls";
 
 const playbackRates = [0.75, 1, 1.25, 1.5, 2];
 
@@ -22,16 +22,19 @@ type PlaybackPhase = "idle" | "waiting";
 export function CoursePlayer({
   course,
   locale,
-  autoplay = false
+  autoplay = false,
+  showReaderPreferencesSection = true,
+  showSourceInfo = true
 }: {
   course: Course;
   locale: Locale;
   autoplay?: boolean;
+  showReaderPreferencesSection?: boolean;
+  showSourceInfo?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const mountedRef = useRef(true);
   const pollTokenRef = useRef(0);
-  const autoplayHandledRef = useRef("");
   const pendingAutoPlayRef = useRef(false);
   const lastSavedSecondRef = useRef(course.last_playback_position_seconds);
   const [currentCourse, setCurrentCourse] = useState(course);
@@ -60,7 +63,6 @@ export function CoursePlayer({
     setPlaybackMessage("");
     lastSavedSecondRef.current = course.last_playback_position_seconds;
     pendingAutoPlayRef.current = false;
-    autoplayHandledRef.current = "";
     if (audioRef.current != null) {
       audioRef.current.currentTime = course.last_playback_position_seconds;
       audioRef.current.pause();
@@ -76,7 +78,15 @@ export function CoursePlayer({
   ]);
 
   useEffect(() => {
-    setPreferences(readReaderPreferences());
+    function syncPreferences() {
+      setPreferences(readReaderPreferences());
+    }
+
+    syncPreferences();
+    window.addEventListener(READER_PREFERENCES_UPDATED_EVENT, syncPreferences);
+    return () => {
+      window.removeEventListener(READER_PREFERENCES_UPDATED_EVENT, syncPreferences);
+    };
   }, []);
 
   useEffect(() => {
@@ -95,20 +105,6 @@ export function CoursePlayer({
     pendingAutoPlayRef.current = false;
     void playCurrentAudio();
   }, [currentCourse.current_audio_url, currentCourse.status]);
-
-  useEffect(() => {
-    if (!autoplay || autoplayHandledRef.current === currentCourse.id) {
-      return;
-    }
-    autoplayHandledRef.current = currentCourse.id;
-    if (currentCourse.status === "ready" && currentCourse.current_audio_url != null) {
-      void playCurrentAudio();
-      return;
-    }
-    if (canRequestAudio(currentCourse.status)) {
-      void requestAndPollAudio();
-    }
-  }, [autoplay, currentCourse.current_audio_url, currentCourse.id, currentCourse.status]);
 
   useEffect(() => {
     setDurationSeconds(currentCourse.duration_seconds);
@@ -259,8 +255,10 @@ export function CoursePlayer({
   const totalDuration = durationSeconds || currentCourse.duration_seconds || 0;
   const progressValue = totalDuration > 0 ? Math.min(currentTime, totalDuration) : 0;
   const canStartAudio = canRequestAudio(currentCourse.status);
-  const canonicalLocator = currentCourse.source?.canonical_locator || "";
+  const source = currentCourse.source;
+  const canonicalLocator = source?.canonical_locator || "";
   const canonicalLocatorIsLink = /^https?:\/\//i.test(canonicalLocator);
+  const shouldShowSourceInfo = showSourceInfo && source != null;
 
   return (
     <div
@@ -269,74 +267,28 @@ export function CoursePlayer({
       data-font-size={preferences.fontSize}
       data-line-height={preferences.lineHeight}
     >
-      <section
-        aria-label={dictionary.reading.readerPreferences}
-        className="flex flex-col gap-3 rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-3 text-xs text-[#70685e] sm:flex-row sm:items-center sm:justify-between"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium text-[#1f1a14]">{dictionary.reading.readerPreferences}</span>
-          {(
-            [
-              ["small", dictionary.reading.smallFont],
-              ["standard", dictionary.reading.standardFont],
-              ["large", dictionary.reading.largeFont]
-            ] as Array<[ReaderFontSize, string]>
-          ).map(([fontSize, label]) => (
-            <button
-              aria-pressed={preferences.fontSize === fontSize}
-              className={[
-                "pa-focus rounded-md border px-2.5 py-1.5 transition",
-                preferences.fontSize === fontSize
-                  ? "border-[#2f6f5e] bg-[#dfece6] text-[#245447]"
-                  : "border-[#ddd2c1] bg-[#fffdf8] text-[#70685e] hover:border-[#2f6f5e]"
-              ].join(" ")}
-              key={fontSize}
-              onClick={() => updatePreferences({ fontSize })}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {(
-            [
-              ["compact", dictionary.reading.compactLine],
-              ["comfortable", dictionary.reading.comfortableLine],
-              ["loose", dictionary.reading.looseLine]
-            ] as Array<[ReaderLineHeight, string]>
-          ).map(([lineHeight, label]) => (
-            <button
-              aria-pressed={preferences.lineHeight === lineHeight}
-              className={[
-                "pa-focus rounded-md border px-2.5 py-1.5 transition",
-                preferences.lineHeight === lineHeight
-                  ? "border-[#2f6f5e] bg-[#dfece6] text-[#245447]"
-                  : "border-[#ddd2c1] bg-[#fffdf8] text-[#70685e] hover:border-[#2f6f5e]"
-              ].join(" ")}
-              key={lineHeight}
-              onClick={() => updatePreferences({ lineHeight })}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
+      {showReaderPreferencesSection ? (
+        <section
+          aria-label={dictionary.reading.readerPreferences}
+          className="flex flex-col gap-3 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3 text-xs text-[var(--pa-muted)] sm:flex-row sm:items-center sm:justify-between"
+        >
+          <ReaderPreferencesControls locale={locale} onChange={updatePreferences} preferences={preferences} />
+        </section>
+      ) : null}
 
-      {currentCourse.source ? (
-        <div className="rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-3 text-xs text-[#70685e]">
+      {shouldShowSourceInfo ? (
+        <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3 text-xs text-[var(--pa-muted)]">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
-            {currentCourse.source.source_domain ? <span>{currentCourse.source.source_domain}</span> : null}
-            {currentCourse.source.author ? <span>{currentCourse.source.author}</span> : null}
-            {currentCourse.source.published_at ? <span>{currentCourse.source.published_at}</span> : null}
-            {currentCourse.source.original_filename ? <span>{currentCourse.source.original_filename}</span> : null}
-            {currentCourse.source.relative_path ? <span>{currentCourse.source.relative_path}</span> : null}
-            {currentCourse.source.content_type ? <span>{currentCourse.source.content_type}</span> : null}
-            {currentCourse.source.byte_size != null ? <span>{currentCourse.source.byte_size} B</span> : null}
-            {currentCourse.source.canonical_locator ? (
+            {source?.source_domain ? <span>{source.source_domain}</span> : null}
+            {source?.author ? <span>{source.author}</span> : null}
+            {source?.published_at ? <span>{source.published_at}</span> : null}
+            {source?.original_filename ? <span>{source.original_filename}</span> : null}
+            {source?.relative_path ? <span>{source.relative_path}</span> : null}
+            {source?.content_type ? <span>{source.content_type}</span> : null}
+            {source?.byte_size != null ? <span>{source.byte_size} B</span> : null}
+            {source?.canonical_locator ? (
               canonicalLocatorIsLink ? (
-                <a className="text-[#245447] underline" href={canonicalLocator} rel="noreferrer" target="_blank">
+                <a className="text-[var(--pa-green)] underline" href={canonicalLocator} rel="noreferrer" target="_blank">
                   {canonicalLocator}
                 </a>
               ) : (
@@ -359,11 +311,11 @@ export function CoursePlayer({
       ) : null}
 
       {!readerMarkdown && !hasAudio ? (
-        <div className="rounded-lg border border-dashed border-[#ddd2c1] bg-[#fffdf8] p-4">
-          <p className="text-sm font-medium text-[#1f1a14]">
+        <div className="rounded-lg border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
+          <p className="text-sm font-medium text-[var(--pa-ink)]">
             {canStartAudio ? dictionary.detail.textReadyTitle : dictionary.detail.reviewTitle}
           </p>
-          <p className="mt-1 text-sm leading-6 text-[#70685e]">
+          <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">
             {canStartAudio ? playbackMessage || dictionary.detail.textReadyBody : dictionary.detail.reviewBody}
           </p>
         </div>
@@ -371,15 +323,15 @@ export function CoursePlayer({
 
       <section
         data-course-player="reading-dock"
-        className="sticky bottom-3 z-30 rounded-xl border border-[#ddd2c1] bg-[#fffdf8]/95 p-3 shadow-[0_14px_40px_rgba(68,48,24,0.14)] backdrop-blur supports-[padding:max(0px)]:mb-[max(0rem,env(safe-area-inset-bottom))]"
+        className="sticky bottom-3 z-30 rounded-xl border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3 shadow-[0_14px_40px_rgba(17,17,17,0.14)] backdrop-blur supports-[padding:max(0px)]:mb-[max(0rem,env(safe-area-inset-bottom))]"
       >
         <div className="flex flex-col gap-3">
           {!hasAudio ? (
-            <div className="rounded-lg border border-dashed border-[#ddd2c1] bg-[#fffdf8] p-3">
-              <p className="text-sm font-medium text-[#1f1a14]">
+            <div className="rounded-lg border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] p-3">
+              <p className="text-sm font-medium text-[var(--pa-ink)]">
                 {canStartAudio ? dictionary.detail.textReadyTitle : dictionary.detail.reviewTitle}
               </p>
-              <p className="mt-1 text-sm leading-6 text-[#70685e]">
+              <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">
                 {canStartAudio ? playbackMessage || dictionary.detail.textReadyBody : dictionary.detail.reviewBody}
               </p>
             </div>
@@ -399,16 +351,16 @@ export function CoursePlayer({
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#1f1a14]">{currentCourse.title}</p>
-                    <p className="truncate text-xs text-[#70685e]">
+                    <p className="truncate text-sm font-semibold text-[var(--pa-ink)]">{currentCourse.title}</p>
+                    <p className="truncate text-xs text-[var(--pa-muted)]">
                       {activeSentence?.text ?? dictionary.player.unavailable}
                     </p>
                   </div>
-                  <label className="flex items-center gap-2 text-xs text-[#70685e]">
+                  <label className="flex items-center gap-2 text-xs text-[var(--pa-muted)]">
                     {dictionary.player.speed}
                     <select
                       aria-label={dictionary.player.speed}
-                      className="pa-focus rounded-md border border-[#ddd2c1] bg-[#fffdf8] px-2 py-1 text-xs text-[#1f1a14]"
+                      className="pa-focus rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-2 py-1 text-xs text-[var(--pa-ink)]"
                       onChange={(event) => updatePreferences({ playbackRate: Number(event.target.value) })}
                       value={preferences.playbackRate}
                     >
@@ -424,14 +376,14 @@ export function CoursePlayer({
                   <div className="flex items-center justify-center gap-2 sm:justify-start">
                     <button
                       aria-label={dictionary.player.rewind}
-                      className="pa-focus inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ddd2c1] bg-[#f3ede2] text-sm font-semibold text-[#70685e]"
+                      className="pa-focus inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--pa-line)] bg-[var(--pa-muted-surface)] text-sm font-semibold text-[var(--pa-muted)]"
                       onClick={() => seekBy(-10)}
                       type="button"
                     >
                       -10
                     </button>
                     <button
-                      className="pa-focus inline-flex h-11 min-w-20 items-center justify-center rounded-full bg-[#2f6f5e] px-4 text-sm font-semibold text-white"
+                      className="pa-focus inline-flex h-11 min-w-20 items-center justify-center rounded-full bg-[var(--pa-green)] px-4 text-sm font-semibold text-white"
                       onClick={togglePlayback}
                       type="button"
                     >
@@ -439,7 +391,7 @@ export function CoursePlayer({
                     </button>
                     <button
                       aria-label={dictionary.player.forward}
-                      className="pa-focus inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#ddd2c1] bg-[#f3ede2] text-sm font-semibold text-[#70685e]"
+                      className="pa-focus inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--pa-line)] bg-[var(--pa-muted-surface)] text-sm font-semibold text-[var(--pa-muted)]"
                       onClick={() => seekBy(10)}
                       type="button"
                     >
@@ -457,7 +409,7 @@ export function CoursePlayer({
                       type="range"
                       value={progressValue}
                     />
-                    <div className="flex justify-between text-xs text-[#70685e]">
+                    <div className="flex justify-between text-xs text-[var(--pa-muted)]">
                       <span>{formatDuration(currentTime)}</span>
                       <span>{formatDuration(totalDuration)}</span>
                     </div>
@@ -470,11 +422,11 @@ export function CoursePlayer({
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#1f1a14]">{currentCourse.title}</p>
-                    <p className="mt-1 text-xs text-[#70685e]">{playbackMessage || dictionary.detail.textReadyBody}</p>
+                    <p className="truncate text-sm font-semibold text-[var(--pa-ink)]">{currentCourse.title}</p>
+                    <p className="mt-1 text-xs text-[var(--pa-muted)]">{playbackMessage || dictionary.detail.textReadyBody}</p>
                   </div>
                   <button
-                    className="pa-focus inline-flex h-11 min-w-20 items-center justify-center rounded-full bg-[#2f6f5e] px-4 text-sm font-semibold text-white disabled:opacity-50"
+                    className="pa-focus inline-flex h-11 min-w-20 items-center justify-center rounded-full bg-[var(--pa-green)] px-4 text-sm font-semibold text-white disabled:opacity-50"
                     disabled={playbackPhase === "waiting"}
                     onClick={() => requestAndPollAudio()}
                     type="button"

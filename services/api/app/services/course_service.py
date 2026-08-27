@@ -1,18 +1,22 @@
 import json
 from datetime import datetime, time, timedelta, timezone
 from dataclasses import dataclass
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
+from app.models.course import ArticleImageAsset, ArticleText, AudioAsset, Course, CourseSeries, CourseStatus, Sentence, SourceType
+from app.models.file_import import FileImportItem
+from app.models.generation_job import GenerationJob, JobStatus, JobType
 from app.models.tag import Tag
 from app.services.content_metrics import TextContentMetric, measure_text_content
+from app.services.object_storage import ObjectStorageService, is_s3_compatible_backend
+from app.services.file_resource_service import FileResourceService
 from app.services.tts_limits import TTSDailyCourseLimitExceeded, enforce_route_metric_limit
 from app.services.tts_router import ProviderHealth, TTSRouter
-from app.models.course import ArticleText, Course, CourseSeries, CourseStatus, Sentence, SourceType
-from app.models.generation_job import GenerationJob, JobStatus, JobType
 from app.services.content_normalization import derive_tts_text
 from app.services.sentence_service import split_into_sentences
 from app.services.tag_service import (
@@ -196,6 +200,10 @@ def create_text_course(
     return course
 
 
+class AudioGenerationQueueUnavailable(RuntimeError):
+    pass
+
+
 def request_audio_generation(db: Session, course: Course) -> GenerationJob:
     latest_article_text = latest_article_text_for_course(course)
     if latest_article_text is not None and not latest_article_text.confirmed_by_user:
@@ -232,8 +240,21 @@ def request_audio_generation(db: Session, course: Course) -> GenerationJob:
     db.commit()
     db.refresh(course)
     db.refresh(job)
-    enqueue_audio_generation(course.id, job.id)
+    try:
+        enqueue_audio_generation(course.id, job.id)
+    except Exception as exc:
+        _mark_audio_generation_queue_failed(db, job, course, str(exc))
+        raise AudioGenerationQueueUnavailable(str(exc)) from exc
     return job
+
+
+def _mark_audio_generation_queue_failed(db: Session, job: GenerationJob, course: Course, message: str) -> None:
+    job.status = JobStatus.FAILED
+    job.error_code = "queue_unavailable"
+    job.error_message = message[:2000]
+    job.finished_at = datetime.utcnow()
+    course.status = CourseStatus.FAILED
+    db.commit()
 
 
 @dataclass(frozen=True)
@@ -686,6 +707,53 @@ def delete_series_with_courses(db: Session, series: CourseSeries) -> int:
     series.is_deleted = True
     db.commit()
     return len(courses)
+
+
+def delete_stored_object(storage_backend: str, object_key: str | None, object_path: str | None) -> int:
+    backend = storage_backend.strip().lower()
+    if backend == "local":
+        if not object_path:
+            return 0
+        path = Path(object_path)
+        path.unlink(missing_ok=True)
+        return 1
+    if is_s3_compatible_backend(backend):
+        if not object_key:
+            return 0
+        ObjectStorageService.from_settings(backend).delete_object(object_key)
+        return 1
+    return 0
+
+
+def delete_course_with_resources(db: Session, course: Course) -> int:
+    deleted_objects = 0
+    resource_service = FileResourceService(db)
+    for audio_asset in db.scalars(select(AudioAsset).where(AudioAsset.course_id == course.id)):
+        if audio_asset.resource_id is not None:
+            resource = resource_service.get_resource(audio_asset.resource_id)
+            if resource is not None:
+                deleted_objects += resource_service.delete_resource(resource)
+                continue
+        deleted_objects += delete_stored_object(audio_asset.storage_backend, audio_asset.object_key, audio_asset.object_path)
+    for image_asset in db.scalars(select(ArticleImageAsset).where(ArticleImageAsset.course_id == course.id)):
+        if image_asset.resource_id is not None:
+            resource = resource_service.get_resource(image_asset.resource_id)
+            if resource is not None:
+                deleted_objects += resource_service.delete_resource(resource)
+                continue
+        deleted_objects += delete_stored_object(image_asset.storage_backend, image_asset.object_key, image_asset.object_path)
+    for file_item in db.scalars(select(FileImportItem).where(FileImportItem.course_id == course.id)):
+        if file_item.resource_id is not None:
+            resource = resource_service.get_resource(file_item.resource_id)
+            if resource is not None:
+                deleted_objects += resource_service.delete_resource(resource)
+                continue
+        deleted_objects += delete_stored_object(file_item.storage_backend, file_item.object_key, file_item.object_path)
+
+    course.is_deleted = True
+    course.status = CourseStatus.DELETED
+    db.commit()
+    return deleted_objects
 
 
 def list_tags(db: Session, user_id: str, query: str | None = None):

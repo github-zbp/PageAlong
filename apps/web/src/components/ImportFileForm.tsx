@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileImportBatch, getFileImportBatch } from "@/lib/api";
 import type { Dictionary, Locale } from "@/lib/i18n";
 import type { FileImportBatch } from "@/lib/types";
+import { SeriesAutocompleteField } from "./SeriesAutocompleteField";
 
 const ACTIVE_BATCH_KEY = "pagealong.activeFileImportBatchId";
 
@@ -46,17 +47,17 @@ function statusLabel(dictionary: Dictionary, status: string): string {
 }
 
 function statusClassName(status: string): string {
-  if (status === "succeeded") return "border-[#c9e4d8] bg-[#eef8f2] text-[#245447]";
-  if (status === "running") return "border-[#ead9a8] bg-[#fff8df] text-[#8a5b00]";
-  if (status === "failed") return "border-[#f1b8b3] bg-[#fff1f0] text-[#b42318]";
-  return "border-[#ddd2c1] bg-[#fffdf8] text-[#70685e]";
+  if (status === "succeeded") return "border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] text-[var(--pa-green)]";
+  if (status === "running") return "border-[var(--pa-amber-soft)] bg-[var(--pa-amber-soft)] text-[var(--pa-amber)]";
+  if (status === "failed") return "border-[var(--pa-error-soft)] bg-[var(--pa-error-soft)] text-[var(--pa-error)]";
+  return "border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-muted)]";
 }
 
 function itemRowClassName(status: string): string {
-  if (status === "succeeded") return "border-[#c9e4d8] bg-[#f8fcf9]";
-  if (status === "running") return "border-[#ead9a8] bg-[#fffdf0]";
-  if (status === "failed") return "border-[#f1b8b3] bg-[#fff8f7]";
-  return "border-[#ddd2c1] bg-[#fffdf8]";
+  if (status === "succeeded") return "border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)]";
+  if (status === "running") return "border-[var(--pa-amber-soft)] bg-[var(--pa-amber-soft)]";
+  if (status === "failed") return "border-[var(--pa-error-soft)] bg-[var(--pa-error-soft)]";
+  return "border-[var(--pa-line)] bg-[var(--pa-surface)]";
 }
 
 export function ImportFileForm({
@@ -204,7 +205,7 @@ export function ImportFileForm({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={submit} className="space-y-4 rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4">
+      <form onSubmit={submit} className="space-y-4 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -218,8 +219,8 @@ export function ImportFileForm({
               className={[
                 "pa-focus rounded-md border px-3 py-2 text-sm font-medium transition",
                 mode === nextMode
-                  ? "border-[#2f6f5e] bg-[#2f6f5e] text-white"
-                  : "border-[#ddd2c1] bg-[#fffdf8] text-[#70685e] hover:border-[#2f6f5e] hover:text-[#245447]"
+                  ? "border-[var(--pa-green)] bg-[var(--pa-green)] text-white"
+                  : "border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-muted)] hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]"
               ].join(" ")}
               key={nextMode}
               onClick={() => {
@@ -236,16 +237,11 @@ export function ImportFileForm({
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            className="w-full rounded-md border border-[#ddd2c1] bg-[#fffdf8] px-3 py-2 text-base outline-none focus:border-[#2f6f5e]"
-            placeholder={dictionary.import.seriesPlaceholder}
-            value={seriesTitle}
-            onChange={(event) => setSeriesTitle(event.target.value)}
-          />
+          <SeriesAutocompleteField dictionary={dictionary} value={seriesTitle} onChange={setSeriesTitle} />
           <input
             ref={fileInputRef}
             aria-label={dictionary.import.fileSelect}
-            className="w-full rounded-md border border-dashed border-[#ddd2c1] bg-[#fffdf8] px-3 py-2 text-sm text-[#70685e] file:mr-3 file:rounded-md file:border-0 file:bg-[#2f6f5e] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white focus:border-[#2f6f5e] focus:outline-none"
+            className="w-full rounded-md border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 py-2 text-sm text-[var(--pa-muted)] file:mr-3 file:rounded-md file:border-0 file:bg-[var(--pa-green)] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white focus:border-[var(--pa-green)] focus:outline-none"
             multiple={mode !== "single_file"}
             onChange={(event) => updateSelectedFiles(Array.from(event.target.files ?? []))}
             type="file"
@@ -253,38 +249,38 @@ export function ImportFileForm({
           />
         </div>
 
-        <div className="rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-3">
+        <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#70685e]">{dictionary.import.fileSelect}</p>
-            <span className="text-xs text-[#70685e]">{selectedFiles.length}</span>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--pa-muted)]">{dictionary.import.fileSelect}</p>
+            <span className="text-xs text-[var(--pa-muted)]">{selectedFiles.length}</span>
           </div>
           {selectedFiles.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {selectedFiles.map((file, index) => (
                 <li key={`${file.name}-${index}`} className="flex flex-wrap items-center justify-between gap-3 text-sm">
                   <div className="min-w-0">
-                    <p className="truncate font-medium text-[#1f1a14]">
+                    <p className="truncate font-medium text-[var(--pa-ink)]">
                       {selectedPaths[index] ?? file.name}
                     </p>
-                    <p className="mt-0.5 text-xs text-[#70685e]">{Math.max(file.size, 0)} B</p>
+                    <p className="mt-0.5 text-xs text-[var(--pa-muted)]">{Math.max(file.size, 0)} B</p>
                   </div>
-                  <span className="rounded-md border border-[#ddd2c1] px-2 py-1 text-xs text-[#70685e]">
+                  <span className="rounded-md border border-[var(--pa-line)] px-2 py-1 text-xs text-[var(--pa-muted)]">
                     {(file.name.split(".").pop() || "").toUpperCase() || dictionary.import.fileSingle}
                   </span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm leading-6 text-[#70685e]">{dictionary.import.fileNoFiles}</p>
+            <p className="mt-3 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.import.fileNoFiles}</p>
           )}
         </div>
 
-        <p className="text-xs leading-5 text-[#70685e]">{dictionary.import.fileResumeNotice}</p>
+        <p className="text-xs leading-5 text-[var(--pa-muted)]">{dictionary.import.fileResumeNotice}</p>
 
-        {error ? <p className="text-sm text-[#b42318]">{error}</p> : null}
+        {error ? <p className="text-sm text-[var(--pa-error)]">{error}</p> : null}
 
         <button
-          className="pa-focus rounded-md bg-[#2f6f5e] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          className="pa-focus rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           disabled={isSubmitting}
           type="submit"
         >
@@ -293,16 +289,16 @@ export function ImportFileForm({
       </form>
 
       {batch ? (
-        <section className="space-y-3 rounded-lg border border-[#ddd2c1] bg-[#fffdf8] p-4">
+        <section className="space-y-3 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-semibold text-[#1f1a14]">{dictionary.import.fileBatchSummary}</p>
-              <p className="mt-1 text-xs text-[#70685e]">
+              <p className="text-sm font-semibold text-[var(--pa-ink)]">{dictionary.import.fileBatchSummary}</p>
+              <p className="mt-1 text-xs text-[var(--pa-muted)]">
                 {batch.success_count} {dictionary.import.fileSucceeded} · {batch.failed_count} {dictionary.import.fileFailed}
                 · {dictionary.import.fileTotal} {batch.total_count}
               </p>
             </div>
-            <span className="text-xs text-[#70685e]">
+            <span className="text-xs text-[var(--pa-muted)]">
               {isPolling ? dictionary.import.fileRunning : dictionary.import.fileReady}
             </span>
           </div>
@@ -311,11 +307,11 @@ export function ImportFileForm({
               <article key={item.id} className={`rounded-md border p-3 ${itemRowClassName(item.status)}`}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-[#1f1a14]">{item.original_filename}</p>
-                    <p className="mt-0.5 text-xs text-[#70685e]">
+                    <p className="truncate text-sm font-medium text-[var(--pa-ink)]">{item.original_filename}</p>
+                    <p className="mt-0.5 text-xs text-[var(--pa-muted)]">
                       {item.relative_path && item.relative_path !== item.original_filename ? item.relative_path : item.original_filename}
                     </p>
-                    {item.error_message ? <p className="mt-2 text-sm leading-6 text-[#b42318]">{item.error_message}</p> : null}
+                    {item.error_message ? <p className="mt-2 text-sm leading-6 text-[var(--pa-error)]">{item.error_message}</p> : null}
                   </div>
                   <span className={`rounded-md border px-2 py-1 text-xs font-medium ${statusClassName(item.status)}`}>
                     {statusLabel(dictionary, item.status)}

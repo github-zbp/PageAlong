@@ -1,4 +1,3 @@
-import type { ExtractedArticle } from "./types";
 import { PAGEALONG_API_BASE_URL, PAGEALONG_WEB_BASE_URL, getExtensionVersion } from "./config";
 
 export type PageAlongUser = {
@@ -14,6 +13,34 @@ export type SyncedCourse = {
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, "");
+}
+
+function normalizeCookieUrl(value: string): string {
+  try {
+    return new URL("/", value).toString();
+  } catch {
+    return value;
+  }
+}
+
+async function readSessionToken(apiBaseUrl: string, webBaseUrl: string): Promise<string> {
+  const cookiesApi = globalThis.chrome?.cookies;
+  if (!cookiesApi?.get) {
+    return "";
+  }
+  const candidateUrls = Array.from(new Set([apiBaseUrl, webBaseUrl].map(normalizeCookieUrl)));
+  for (const url of candidateUrls) {
+    try {
+      const cookie = await cookiesApi.get({ url, name: "pagealong_session" });
+      const token = cookie?.value?.trim() ?? "";
+      if (token) {
+        return token;
+      }
+    } catch {
+      continue;
+    }
+  }
+  return "";
 }
 
 async function readJson<T>(response: Response, fallback: string): Promise<T> {
@@ -47,34 +74,19 @@ export class PageAlongClient {
     this.fetchImpl = ((...args: Parameters<typeof fetch>) => fetchImpl(...args)) as typeof fetch;
   }
 
+  private async authHeaders(): Promise<Record<string, string>> {
+    const token = await readSessionToken(this.apiBaseUrl, this.webBaseUrl);
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
   async me(): Promise<PageAlongUser> {
+    const headers = await this.authHeaders();
     const response = await this.fetchImpl(`${this.apiBaseUrl}/auth/me`, {
       method: "GET",
-      headers: {},
+      headers,
       credentials: "include"
     });
     return readJson<PageAlongUser>(response, "未登录 PageAlong");
-  }
-
-  async syncArticle(article: ExtractedArticle): Promise<SyncedCourse> {
-    return this.syncPayload({
-      url: article.url,
-      title: article.title,
-      article_html: article.articleHtml,
-      text_excerpt: article.textExcerpt,
-      images: article.images.map((image) => ({
-        url: image.url,
-        alt: image.alt,
-        width: image.width,
-        height: image.height,
-        nearby_text: image.nearbyText
-      })),
-      client_metadata: {
-        extension_version: getExtensionVersion(),
-        extractor_version: "browser-v1",
-        source: "desktop_extension"
-      }
-    });
   }
 
   async syncUrl(url: string, title = ""): Promise<SyncedCourse> {
@@ -106,11 +118,13 @@ export class PageAlongClient {
     }>;
     client_metadata: Record<string, string>;
   }): Promise<SyncedCourse> {
+    const headers = {
+      ...(await this.authHeaders()),
+      "Content-Type": "application/json"
+    };
     const response = await this.fetchImpl(`${this.apiBaseUrl}/courses/import-url/extension-sync`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       credentials: "include",
       body: JSON.stringify(payload)
     });

@@ -130,6 +130,21 @@ class ObjectStorageService:
         body = response["Body"]
         return body.read()
 
+    def delete_object(self, object_key_or_path: str) -> None:
+        normalized_key = object_key_or_path.lstrip("/")
+
+        if self.backend == "local":
+            path = Path(object_key_or_path)
+            if not path.is_absolute():
+                path = self.local_root / normalized_key
+            path.unlink(missing_ok=True)
+            return
+
+        if self.backend not in S3_COMPATIBLE_BACKENDS:
+            raise ValueError(f"Unsupported object storage backend: {self.backend}")
+
+        self._client().delete_object(Bucket=self.bucket, Key=normalized_key)
+
     def public_url_for_key(self, object_key: str) -> str:
         normalized_key = object_key.lstrip("/")
         if self.public_base_url:

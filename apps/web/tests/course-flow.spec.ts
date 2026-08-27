@@ -51,6 +51,7 @@ type MockCourseSeries = {
   is_starred: boolean;
   updated_at: string;
   last_read_at: string | null;
+  last_read_course_id: string | null;
   latest_course_id: string | null;
 };
 
@@ -90,6 +91,18 @@ test.beforeEach(async ({ page }) => {
       status: 200,
       headers: apiHeaders,
       body: JSON.stringify(authUser)
+    });
+  });
+
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/me\/preferences$/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: apiHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({ theme_id: "newspaper", background_color: "white" })
     });
   });
 });
@@ -195,7 +208,7 @@ async function routeReadyCourse(page: Page, course = mockReadyCourse()) {
   });
 }
 
-async function routeSeriesWorkspace(page: Page, courses = [mockReadyCourse()]) {
+async function routeSeriesWorkspace(page: Page, courses = [mockReadyCourse({ current_audio_url: "/courses/ready_1/audio" })]) {
   const series: MockCourseSeries = {
     id: "series_1",
     title: "精听训练",
@@ -204,8 +217,10 @@ async function routeSeriesWorkspace(page: Page, courses = [mockReadyCourse()]) {
     is_starred: false,
     updated_at: "2026-07-10T10:00:00",
     last_read_at: "2026-07-10T10:00:00",
+    last_read_course_id: courses[0]?.id ?? null,
     latest_course_id: courses[0]?.id ?? null
   };
+  const openedCourse = courses.find((course) => course.id === series.latest_course_id) ?? courses[0] ?? null;
 
   await page.route(/http:\/\/localhost:(8000|8070)\/courses(\/.*)?(\?.*)?$/, async (route) => {
     const request = route.request();
@@ -240,6 +255,23 @@ async function routeSeriesWorkspace(page: Page, courses = [mockReadyCourse()]) {
       return;
     }
 
+    if (openedCourse !== null && url.pathname === `/courses/${openedCourse.id}` && request.method() === "GET") {
+      await route.fulfill({ status: 200, headers: apiHeaders, body: JSON.stringify(openedCourse) });
+      return;
+    }
+
+    if (openedCourse !== null && url.pathname === `/courses/${openedCourse.id}/audio` && request.method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          ...apiHeaders,
+          "Content-Type": "audio/mpeg"
+        },
+        body: "audio-bytes"
+      });
+      return;
+    }
+
     await route.fulfill({ status: 404, headers: apiHeaders, body: JSON.stringify({ detail: "not found" }) });
   });
 }
@@ -247,7 +279,7 @@ async function routeSeriesWorkspace(page: Page, courses = [mockReadyCourse()]) {
 test("user imports text from the localized console and sees it in the library", async ({ page }) => {
   const courses: MockCourse[] = [];
 
-  await page.route(/http:\/\/localhost:(8000|8070)\/courses(\/tags)?(\?.*)?$/, async (route) => {
+  await page.route(/http:\/\/localhost:(8000|8070)\/courses(\/series|\/tags)?(\?.*)?$/, async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const headers = {
@@ -267,7 +299,12 @@ test("user imports text from the localized console and sees it in the library", 
       return;
     }
 
-    if (request.method() === "GET") {
+    if (url.pathname === "/courses/series") {
+      await route.fulfill({ status: 200, headers, body: JSON.stringify({ items: [] }) });
+      return;
+    }
+
+    if (url.pathname === "/courses" && request.method() === "GET") {
       await route.fulfill({ status: 200, headers, body: JSON.stringify({ items: courses }) });
       return;
     }
@@ -291,23 +328,23 @@ test("user imports text from the localized console and sees it in the library", 
     await route.fulfill({ status: 201, headers, body: JSON.stringify(course) });
   });
 
-  await page.goto("/zh/import/text");
+  await page.goto("/zh/import");
 
   await expect(page.getByRole("link", { name: "工作台" })).toBeVisible();
   await expect(page.getByText("我的课程")).toBeVisible();
   await expect(page.getByRole("link", { name: "课程库" })).toBeVisible();
   await expect(page.getByRole("link", { name: "课程导入" })).toBeVisible();
   await expect(page.locator("aside").getByRole("link", { name: "生成任务" })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "课程导入" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "导入任务" })).toBeVisible();
   await expect(page.getByRole("link", { name: "粘贴文本" })).toBeVisible();
   await expect(page.getByRole("link", { name: "网页导入" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "文件上传" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "浏览器插件" })).toBeVisible();
+  await page.getByRole("link", { name: "粘贴文本" }).click();
   await page.getByPlaceholder("课程标题").fill("通勤学习课程");
   await page.getByPlaceholder("粘贴文章、课程笔记或文档正文").fill("第一句。第二句。");
   await page.getByRole("button", { name: "创建课程" }).click();
 
   await expect(page).toHaveURL(/\/zh\/library$/);
-  await expect(page.getByRole("heading", { name: "课程库" })).toBeVisible();
   await expect(page.getByRole("link", { name: /通勤学习课程/ }).first()).toBeVisible();
   await expect(page.getByText("8 字").first()).toBeVisible();
 });
@@ -322,15 +359,100 @@ test("reader detail uses the custom player and reader preferences", async ({ pag
   await expect(page.locator('[data-course-player="reading-dock"]')).toBeVisible();
   await expect(page.getByRole("button", { name: "播放" })).toBeVisible();
 
-  await page.getByRole("button", { name: "大字号" }).click();
+  await page.getByRole("button", { name: "阅读偏好" }).click();
+  await expect(page.getByRole("dialog", { name: "阅读偏好" })).toBeVisible();
+  await page.getByRole("dialog", { name: "阅读偏好" }).getByRole("button", { name: "大字号" }).click();
   await expect(page.locator("[data-reader-preferences]")).toHaveAttribute("data-font-size", "large");
+  await page.getByRole("dialog", { name: "阅读偏好" }).getByRole("button", { name: "关闭" }).click();
+  await expect(page.getByRole("dialog", { name: "阅读偏好" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "更多设置" }).click();
+  await page.getByRole("menuitem", { name: "添加/删除标签" }).dispatchEvent("click");
+  await expect(page.getByRole("dialog", { name: "添加/删除标签" })).toBeVisible();
 
   await page.reload();
   await expect(page.locator("[data-reader-preferences]")).toHaveAttribute("data-font-size", "large");
 });
 
+test("console shell sidebar can collapse and persist", async ({ page }) => {
+  await routeReadyCourse(page);
+
+  await page.goto("/zh/courses/ready_1");
+
+  await expect(page.locator("aside")).toHaveAttribute("data-collapsed", "false");
+  await page.getByRole("button", { name: "收起侧边栏" }).click();
+  await expect(page.locator("aside")).toHaveAttribute("data-collapsed", "true");
+  await expect(page.getByRole("button", { name: "展开侧边栏" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator("aside")).toHaveAttribute("data-collapsed", "true");
+});
+
+test("course detail download menu queues the first request and links to tasks", async ({ page }) => {
+  await routeReadyCourse(page);
+  await page.route(/http:\/\/localhost:(8000|8070)\/courses\/ready_1\/downloads\/markdown$/, async (route) => {
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: apiHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({
+        status: "pending",
+        job_id: "job_markdown_1",
+        job_type: "course_export_markdown",
+        resource_id: null,
+        download_url: null,
+        message: "download_generation_queued"
+      })
+    });
+  });
+
+  await page.goto("/zh/courses/ready_1");
+  await page.getByRole("button", { name: "更多设置" }).click();
+  await page.getByRole("menuitem", { name: "下载为Markdown" }).dispatchEvent("click");
+
+  await expect(page.getByText("文件已开始生成，可以到下载任务列表查看文件生成和下载进度。")).toBeVisible();
+  await expect(page.getByRole("link", { name: "查看下载任务" }).first()).toHaveAttribute("href", "/zh/jobs");
+});
+
 test("course detail downloads content and audio files", async ({ page }) => {
   await routeReadyCourse(page);
+  await page.route(/http:\/\/localhost:(8000|8070)\/courses\/ready_1\/downloads\/(markdown|audio)$/, async (route) => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: apiHeaders });
+      return;
+    }
+    if (url.pathname.endsWith("/downloads/markdown")) {
+      await route.fulfill({
+        status: 200,
+        headers: apiHeaders,
+        body: JSON.stringify({
+          status: "ready",
+          job_id: null,
+          job_type: "course_export_markdown",
+          resource_id: "resource_markdown_1",
+          download_url: "http://localhost:8070/courses/ready_1/exports/markdown",
+          message: null
+        })
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({
+        status: "ready",
+        job_id: null,
+        job_type: "tts_generate",
+        resource_id: "resource_audio_1",
+        download_url: "http://localhost:8070/courses/ready_1/audio-download",
+        message: null
+      })
+    });
+  });
   await page.route(/http:\/\/localhost:(8000|8070)\/courses\/ready_1\/exports\/markdown$/, async (route) => {
     await route.fulfill({
       status: 200,
@@ -357,7 +479,7 @@ test("course detail downloads content and audio files", async ({ page }) => {
   await page.goto("/zh/courses/ready_1");
 
   const markdownDownload = page.waitForEvent("download");
-  await page.getByRole("button", { name: "下载 Markdown" }).click();
+  await page.getByRole("button", { name: "下载为Markdown" }).click();
   expect((await markdownDownload).suggestedFilename()).toBe("commute.md");
 
   const audioDownload = page.waitForEvent("download");
@@ -365,28 +487,40 @@ test("course detail downloads content and audio files", async ({ page }) => {
   expect((await audioDownload).suggestedFilename()).toBe("commute.mp3");
 });
 
-test("series reading workspace collapses the desktop article queue", async ({ page }) => {
+test("series courses navigate to the last-read course on desktop", async ({ page }) => {
   await routeSeriesWorkspace(page);
 
   await page.goto("/zh/series");
-  await page.getByRole("button", { name: /打开系列: 精听训练/ }).click();
+  await page.getByRole("article").filter({ hasText: "精听训练" }).getByRole("button", { name: "阅读" }).click();
 
-  await expect(page.locator('[data-course-player="reading-dock"]')).toBeVisible();
-  await page.getByRole("button", { name: "折叠文章列表" }).click();
-  await expect(page.locator("[data-reading-sidebar]")).toHaveAttribute("data-collapsed", "true");
+  await expect(page).toHaveURL(/\/zh\/series\/series_1\/courses\/ready_1$/);
+  await expect(page.locator("header h1").first()).toHaveText("通勤听读");
+  await expect(page.locator("[data-reading-sidebar]")).toBeVisible();
+  await expect(page.locator("[data-reading-sidebar]").getByRole("button", { name: "通勤听读" })).toBeVisible();
 });
 
-test("series reading workspace opens the mobile article drawer", async ({ page }) => {
+test("series courses navigate to the last-read course on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await routeSeriesWorkspace(page);
 
   await page.goto("/zh/series");
-  await page.getByRole("button", { name: /打开系列: 精听训练/ }).click();
+  await page.getByRole("article").filter({ hasText: "精听训练" }).getByRole("button", { name: "阅读" }).click();
 
-  await expect(page.getByRole("button", { name: "打开文章列表" })).toBeVisible();
-  await page.getByRole("button", { name: "打开文章列表" }).click();
-  await expect(page.getByRole("dialog", { name: "课程文章" })).toBeVisible();
-  await expect(page.locator('[data-course-player="reading-dock"]')).toBeVisible();
+  await expect(page).toHaveURL(/\/zh\/series\/series_1\/courses\/ready_1$/);
+  await expect(page.locator("header h1").first()).toHaveText("通勤听读");
+  await expect(page.locator("[data-reading-sidebar]")).toHaveCount(1);
+});
+
+test("series course detail reuses the course action menu", async ({ page }) => {
+  await routeSeriesWorkspace(page);
+
+  await page.goto("/zh/series");
+  await page.getByRole("article").filter({ hasText: "精听训练" }).getByRole("button", { name: "阅读" }).click();
+
+  await expect(page.getByRole("button", { name: "更多设置" })).toBeVisible();
+  await page.getByRole("button", { name: "更多设置" }).click();
+  await expect(page.getByRole("menuitem", { name: "添加/删除标签" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "转移至" })).toBeVisible();
 });
 
 test("user imports a public URL from the localized console", async ({ page }) => {
@@ -487,7 +621,8 @@ test("user imports a public URL from the localized console", async ({ page }) =>
     });
   });
 
-  await page.goto("/zh/import/url");
+  await page.goto("/zh/import");
+  await page.getByRole("link", { name: "网页导入" }).click();
   await page.getByPlaceholder("粘贴公开网页 URL").fill("https://example.com/article");
   await page.getByRole("button", { name: "导入网页" }).click();
 
@@ -499,7 +634,7 @@ test("user imports a public URL from the localized console", async ({ page }) =>
   await expect(page.getByText("第一句。第二句。")).toBeVisible();
   await page.getByRole("button", { name: "确认并生成音频" }).click();
 
-  await expect(page).toHaveURL(/\/zh\/courses\/url_1$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/url_1(?:\?autoplay=1)?$/);
   expect(audioRequested).toBe(true);
 });
 
@@ -559,13 +694,14 @@ test("URL import resumes after leaving and returning to the import page", async 
     await route.fulfill({ status: 404, headers, body: JSON.stringify({ detail: "not found" }) });
   });
 
-  await page.goto("/zh/import/url");
+  await page.goto("/zh/import");
+  await page.getByRole("link", { name: "网页导入" }).click();
   await page.getByPlaceholder("粘贴公开网页 URL").fill("https://example.com/resume");
   await page.getByRole("button", { name: "导入网页" }).click();
   await expect(page.getByText("正在抓取并清洗网页")).toBeVisible();
 
-  await page.goto("/zh/import/text");
-  await page.goto("/zh/import/url");
+  await page.goto("/zh/import");
+  await page.getByRole("link", { name: "网页导入" }).click();
 
   await expect(page.getByRole("heading", { name: "确认生成内容" })).toBeVisible();
   await expect(page.getByText("第一句。第二句。")).toBeVisible();
@@ -629,7 +765,7 @@ test("failed course detail can retry the failed generation stage", async ({ page
 
   await page.goto("/zh/library");
   await page.getByRole("link", { name: /失败音频课程/ }).click();
-  await expect(page).toHaveURL(/\/zh\/courses\/failed_audio(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/failed_audio(?:\?autoplay=1)?$/);
   await expect(page.getByText("TTS timeout")).toBeVisible();
   await page.getByRole("button", { name: "重试" }).click();
 
@@ -717,7 +853,8 @@ test("failed URL import can retry extraction from the import page", async ({ pag
     await route.fulfill({ status: 404, headers, body: JSON.stringify({ detail: "not found" }) });
   });
 
-  await page.goto("/zh/import/url");
+  await page.goto("/zh/import");
+  await page.getByRole("link", { name: "网页导入" }).click();
   await page.getByPlaceholder("粘贴公开网页 URL").fill("https://example.com/fails");
   await page.getByRole("button", { name: "导入网页" }).click();
 
@@ -783,7 +920,8 @@ test("text import with a series name opens the series list", async ({ page }) =>
     });
   });
 
-  await page.goto("/zh/import/text");
+  await page.goto("/zh/import");
+  await page.getByRole("link", { name: "粘贴文本" }).click();
   const textImportForm = page.locator("form").filter({ hasText: "创建课程" });
   await page.getByPlaceholder("课程标题").fill("英语第一课");
   await textImportForm.getByPlaceholder("系列名称（选填）").fill("英语精听");
@@ -791,7 +929,7 @@ test("text import with a series name opens the series list", async ({ page }) =>
   await page.getByRole("button", { name: "创建课程" }).click();
 
   await expect(page).toHaveURL(/\/zh\/series$/);
-  await expect(page.getByRole("button", { name: /英语精听/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "英语精听", exact: true })).toBeVisible();
 });
 
 test("english dashboard uses english navigation labels", async ({ page }) => {
@@ -862,7 +1000,6 @@ test("sidebar course search opens the library with a filtered list", async ({ pa
   await page.getByPlaceholder("搜索课程").press("Enter");
 
   await expect(page).toHaveURL(/\/zh\/library\?query=/);
-  await expect(page.getByRole("heading", { name: "课程库" })).toBeVisible();
   await expect(page.getByRole("link", { name: /通勤学习课程/ })).toBeVisible();
   await expect(page.getByRole("link", { name: /会议复盘/ })).toHaveCount(0);
 });
@@ -881,10 +1018,10 @@ test("console shell loads compiled Tailwind styles", async ({ page }) => {
 
   await page.goto("/zh/dashboard");
 
-  await expect(page.locator("aside").first()).toHaveCSS("background-color", "rgb(243, 237, 226)");
+  await expect(page.locator("aside").first()).toHaveCSS("background-color", "rgb(247, 247, 242)");
   await expect(page.getByRole("link", { name: "工作台", exact: true })).toHaveCSS(
     "background-color",
-    "rgb(47, 111, 94)"
+    "rgb(23, 23, 23)"
   );
 });
 
@@ -928,11 +1065,44 @@ test("dashboard course cards open the course detail route", async ({ page }) => 
   await page.goto("/zh/dashboard");
   await page.getByRole("link", { name: /继续学习课程/ }).first().click();
 
-  await expect(page).toHaveURL(/\/zh\/courses\/course_1(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/course_1(?:\?autoplay=1)?$/);
   await expect(page.getByRole("heading", { name: "继续学习课程" })).toBeVisible();
   await page.reload();
-  await expect(page).toHaveURL(/\/zh\/courses\/course_1(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/course_1(?:\?autoplay=1)?$/);
   await expect(page.getByRole("heading", { name: "继续学习课程" })).toBeVisible();
+});
+
+test("course detail does not auto-play audio on page load", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as Window & { __playCalls?: number }).__playCalls = 0;
+    HTMLMediaElement.prototype.play = function (...args) {
+      (window as Window & { __playCalls?: number }).__playCalls =
+        ((window as Window & { __playCalls?: number }).__playCalls ?? 0) + 1;
+      return Promise.resolve();
+    };
+  });
+
+  await page.route(/http:\/\/localhost:(8000|8070)\/courses\/ready_1\/audio$/, async (route) => {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        ...apiHeaders,
+        "Content-Type": "audio/mpeg"
+      },
+      body: "audio-bytes"
+    });
+  });
+
+  await routeReadyCourse(
+    page,
+    mockReadyCourse({
+      current_audio_url: "/courses/ready_1/audio"
+    })
+  );
+
+  await page.goto("/zh/courses/ready_1");
+  await expect(page.getByRole("button", { name: "播放" })).toBeVisible();
+  await expect.poll(async () => page.evaluate(() => (window as Window & { __playCalls?: number }).__playCalls ?? 0)).toBe(0);
 });
 
 test("library courses open the course detail route", async ({ page }) => {
@@ -991,12 +1161,12 @@ test("library courses open the course detail route", async ({ page }) => {
   await page.goto("/zh/library");
   await page.getByRole("link", { name: /通勤碎片/ }).click();
 
-  await expect(page).toHaveURL(/\/zh\/courses\/frag_1(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/frag_1(?:\?autoplay=1)?$/);
   await expect(page.locator("header").getByRole("heading", { name: "通勤碎片" })).toBeVisible();
   await expect(page.locator("[data-sentence-index='1']")).toContainText("第二句。");
   await expect(page.locator("[data-sentence-index='1']")).toHaveClass(/pa-sentence-active/);
   await page.reload();
-  await expect(page).toHaveURL(/\/zh\/courses\/frag_1(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/frag_1(?:\?autoplay=1)?$/);
   await expect(page.locator("header").getByRole("heading", { name: "通勤碎片" })).toBeVisible();
 });
 
@@ -1120,13 +1290,14 @@ test("library course cards expose download actions", async ({ page }) => {
 
   await page.goto("/zh/library");
 
-  await expect(page.getByRole("button", { name: "下载 Markdown: 可下载课程" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "下载 Word: 可下载课程" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "下载 PDF: 可下载课程" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "下载音频: 可下载课程" })).toBeVisible();
+  await page.getByRole("button", { name: "更多操作: 可下载课程" }).click();
+  await expect(page.getByRole("menuitem", { name: "下载为Markdown" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "下载为Word" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "下载为PDF" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "下载音频" })).toBeVisible();
 });
 
-test("series courses open the latest article in an in-page reading workspace", async ({ page }) => {
+test("series courses open the latest article in the course URL", async ({ page }) => {
   const series: MockCourseSeries = {
     id: "series_1",
     title: "英语精听",
@@ -1144,6 +1315,7 @@ test("series courses open the latest article in an in-page reading workspace", a
       library_type: "series",
       series_id: "series_1",
       series_title: "英语精听",
+      current_audio_url: "/courses/series_course_1/audio",
       tags: ["英语"],
       sentences: [
         { index: 0, text: "Listen first.", audio_start_seconds: null, audio_end_seconds: null }
@@ -1155,6 +1327,7 @@ test("series courses open the latest article in an in-page reading workspace", a
       library_type: "series",
       series_id: "series_1",
       series_title: "英语精听",
+      current_audio_url: "/courses/series_course_2/audio",
       tags: ["英语"],
       sentences: [
         { index: 0, text: "Listen again.", audio_start_seconds: null, audio_end_seconds: null }
@@ -1169,6 +1342,22 @@ test("series courses open the latest article in an in-page reading workspace", a
         status: 200,
         headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
         body: JSON.stringify({ ...series, courses: seriesCourses })
+      });
+      return;
+    }
+    if (url.pathname === "/courses/series_course_1") {
+      await route.fulfill({
+        status: 200,
+        headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "application/json" },
+        body: JSON.stringify(seriesCourses[0])
+      });
+      return;
+    }
+    if (url.pathname === "/courses/series_course_1/audio") {
+      await route.fulfill({
+        status: 200,
+        headers: { "Access-Control-Allow-Origin": "*", "Content-Type": "audio/mpeg" },
+        body: "audio-bytes"
       });
       return;
     }
@@ -1198,12 +1387,10 @@ test("series courses open the latest article in an in-page reading workspace", a
   await page.goto("/zh/series");
   await expect(page.getByText("更新")).toBeVisible();
   await expect(page.getByText("未阅读")).toBeVisible();
-  await page.getByRole("button", { name: /英语精听/ }).click();
+  await page.getByRole("article").filter({ hasText: "英语精听" }).getByRole("button", { name: "阅读" }).click();
 
-  await expect(page).toHaveURL(/\/zh\/series$/);
+  await expect(page).toHaveURL(/\/zh\/series\/series_1\/courses\/series_course_1$/);
   await expect(page.getByRole("heading", { name: "英语第一课" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "工作台" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /英语第二课/ })).toBeVisible();
 });
 
 test("course detail uses markdown body for sentence highlighting and custom reading dock", async ({ page }) => {
@@ -1261,7 +1448,7 @@ test("course detail uses markdown body for sentence highlighting and custom read
   await page.goto("/zh/library");
   await page.getByRole("link", { name: /Markdown 课程/ }).click();
 
-  await expect(page).toHaveURL(/\/zh\/courses\/course_md(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/course_md(?:\?autoplay=1)?$/);
   await expect(page.getByRole("heading", { name: "一级标题" })).toBeVisible();
   await expect(page.locator("article strong").filter({ hasText: /^重点$/ })).toBeVisible();
   await expect(page.locator("article ul > li", { hasText: "列表重点。" })).toBeVisible();
@@ -1318,7 +1505,7 @@ test("markdown reader highlights backend-derived sentences across markdown synta
   await page.goto("/zh/library");
   await page.getByRole("link", { name: /真实导入/ }).click();
 
-  await expect(page).toHaveURL(/\/zh\/courses\/markdown_mapped(\?autoplay=1)?$/);
+  await expect(page).toHaveURL(/\/zh\/courses\/markdown_mapped(?:\?autoplay=1)?$/);
   await expect(page.locator("[data-sentence-index='0']")).toContainText("标题");
   await expect(page.locator("[data-sentence-index='1']")).toContainText("第一句。");
   await expect(page.locator("[data-sentence-index='2']")).toContainText("第二句。");
