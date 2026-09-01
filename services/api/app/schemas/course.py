@@ -24,6 +24,12 @@ class CourseSectionRead(BaseModel):
     status: str
 
 
+class CourseOutlineItemRead(BaseModel):
+    id: str
+    depth: int
+    title: str
+
+
 class GenerationJobRead(BaseModel):
     id: str
     course_id: str
@@ -81,6 +87,7 @@ class CourseUrlImportCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     tag_ids: list[str] = Field(default_factory=list)
     is_starred: bool = False
+    auto_generate_audio: bool = False
 
 
 class CourseExtensionImageCandidate(BaseModel):
@@ -172,6 +179,7 @@ class CourseRead(BaseModel):
     last_read_at: datetime | None = None
     sentences: list[SentenceRead] = Field(default_factory=list)
     sections: list[CourseSectionRead] = Field(default_factory=list)
+    outline: list[CourseOutlineItemRead] = Field(default_factory=list)
     content_markdown: str | None = None
     source: CourseSourceRead | None = None
     import_status: str | None = None

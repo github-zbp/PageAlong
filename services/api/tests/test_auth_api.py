@@ -4,6 +4,7 @@ import logging
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine
@@ -77,6 +78,23 @@ def test_verification_code_delivery_failure_clears_cooldown(db_session):
     assert sender.messages[-1].to_email == "reader@example.com"
 
 
+def test_auth_capabilities_hide_provider_buttons_when_disabled(client, monkeypatch):
+    from app.api.routes import auth
+
+    monkeypatch.setattr(auth.settings, "auth_wechat_enabled", False)
+    monkeypatch.setattr(auth.settings, "auth_one_tap_enabled", False)
+
+    response = client.get("/auth/capabilities")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "email_password": True,
+        "email_code": True,
+        "wechat": False,
+        "one_tap": False,
+    }
+
+
 def test_email_code_route_returns_service_unavailable_on_delivery_failure(client, monkeypatch):
     from app.api.routes import auth
     from app.services.auth_service import AuthService, InMemoryVerificationCodeStore
@@ -96,6 +114,60 @@ def test_email_code_route_returns_service_unavailable_on_delivery_failure(client
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Email delivery is temporarily unavailable"}
+
+
+def test_email_code_login_issues_a_session_for_existing_user(client, db_session, monkeypatch):
+    from app.api.routes import auth
+    from app.models.user import User, UserRole, UserStatus
+    from app.services.auth_security import hash_password
+    from app.services.auth_service import AuthService, InMemoryVerificationCodeStore
+    from app.services.email_delivery import RecordingEmailSender
+
+    user = User(
+        email="reader@example.com",
+        password_hash=hash_password("abc12345"),
+        role=UserRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified_at=datetime.utcnow(),
+    )
+    db_session.add(user)
+    db_session.commit()
+    sender = RecordingEmailSender()
+    service = AuthService(code_store=InMemoryVerificationCodeStore(), email_sender=sender)
+    monkeypatch.setattr(auth, "get_auth_service", lambda: service)
+
+    client.post("/auth/email/code", json={"email": "reader@example.com", "purpose": "login"})
+    code = sender.messages[-1].code
+    response = client.post("/auth/email/login", json={"email": "reader@example.com", "code": code})
+
+    assert response.status_code == 200
+    assert response.json()["user"]["email"] == "reader@example.com"
+
+
+def test_provider_exchange_routes_return_auth_response(client, db_session, monkeypatch):
+    from app.api.routes import auth
+    from app.models.user import User, UserRole, UserStatus
+    from app.services.auth_security import hash_password
+    from app.services.auth_service import AuthService
+
+    user = User(
+        email="wechat-reader@example.com",
+        password_hash=hash_password("abc12345"),
+        role=UserRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified_at=datetime.utcnow(),
+    )
+    db_session.add(user)
+    db_session.commit()
+    fake_auth_result = SimpleNamespace(token="wechat-token", user=user)
+    service = AuthService()
+    monkeypatch.setattr(auth, "get_auth_service", lambda: service)
+    monkeypatch.setattr(service, "exchange_wechat_identity", lambda *args, **kwargs: fake_auth_result)
+
+    response = client.post("/auth/wechat/exchange", json={"code": "wechat-code", "state": "abc"})
+
+    assert response.status_code == 200
+    assert response.json()["token"] == "wechat-token"
 
 
 def test_register_consumes_code_and_login_returns_bearer_token(db_session):

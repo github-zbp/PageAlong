@@ -8,7 +8,7 @@ import {
   type ReaderFontSize,
   type ReaderLineHeight
 } from "@/lib/reader-preferences";
-import type { Sentence } from "@/lib/types";
+import type { CourseOutlineItem, Sentence } from "@/lib/types";
 
 type Block =
   | { type: "heading"; depth: number; text: string }
@@ -133,6 +133,10 @@ function normalizeForMatch(text: string): string {
   return normalizeMarkdownInline(text).replace(/\s+/g, " ").trim();
 }
 
+function normalizeHeadingTitleForOutline(text: string): string {
+  return normalizeMarkdownInline(text.replace(/\s+#+\s*$/, ""));
+}
+
 function renderInlineText(
   text: string,
   keyPrefix: string,
@@ -207,17 +211,39 @@ function renderUnitSegments(
   ));
 }
 
-function buildTextUnits(blocks: Block[]): TextUnit[] {
+function buildTextUnits(blocks: Block[], outline: CourseOutlineItem[] = []): TextUnit[] {
   const units: TextUnit[] = [];
+  let outlineCursor = 0;
   blocks.forEach((block, blockIndex) => {
     if (block.type === "heading") {
-      const className = block.depth === 1 ? "text-xl font-semibold text-[var(--pa-ink)]" : "text-lg font-semibold text-[var(--pa-ink)]";
+      const anchorIndex =
+        block.depth <= 4
+          ? outline.findIndex(
+              (item, itemIndex) =>
+                itemIndex >= outlineCursor &&
+                item.depth === block.depth &&
+                item.title === normalizeHeadingTitleForOutline(block.text)
+            )
+          : -1;
+      const anchorId = anchorIndex >= 0 ? outline[anchorIndex].id : undefined;
+      if (anchorIndex >= 0) {
+        outlineCursor = anchorIndex + 1;
+      }
+      const className =
+        block.depth === 1
+          ? "scroll-mt-24 text-xl font-semibold text-[var(--pa-ink)]"
+          : "scroll-mt-24 text-lg font-semibold text-[var(--pa-ink)]";
       units.push({
         id: `h-${blockIndex}`,
         text: block.text,
         normalizedText: normalizeForMatch(block.text),
         kind: "text",
-        render: (nodes, key) => React.createElement(`h${Math.min(block.depth, 3)}`, { key, className }, nodes)
+        render: (nodes, key) =>
+          React.createElement(
+            `h${Math.min(block.depth, 4)}`,
+            { key, className, id: anchorId, "data-outline-id": anchorId },
+            nodes
+          )
       });
       return;
     }
@@ -364,6 +390,7 @@ export function MarkdownReader({
   sentences,
   activeSentenceIndex,
   onSelectSentence,
+  outline = [],
   fontSize = "standard",
   lineHeight = "comfortable"
 }: {
@@ -371,11 +398,12 @@ export function MarkdownReader({
   sentences: Sentence[];
   activeSentenceIndex: number;
   onSelectSentence: (sentence: Sentence) => void;
+  outline?: CourseOutlineItem[];
   fontSize?: ReaderFontSize;
   lineHeight?: ReaderLineHeight;
 }) {
   const blocks = useMemo(() => parseMarkdown(markdown), [markdown]);
-  const units = useMemo(() => buildTextUnits(blocks), [blocks]);
+  const units = useMemo(() => buildTextUnits(blocks, outline), [blocks, outline]);
   const segmentsByUnit = useMemo(() => mapSentencesToUnits(units, sentences), [units, sentences]);
 
   useEffect(() => {
@@ -386,7 +414,7 @@ export function MarkdownReader({
   return (
     <article
       className={[
-        "mx-auto max-w-[72ch] space-y-5 px-1 text-[#2a241d] md:px-0",
+        "mx-auto max-w-[72ch] space-y-5 px-1 text-[var(--pa-ink)] md:px-0",
         fontSizeClassName(fontSize),
         lineHeightClassName(lineHeight)
       ].join(" ")}

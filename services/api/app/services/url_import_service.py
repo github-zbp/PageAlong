@@ -35,6 +35,7 @@ class ImportUrlInput:
     tag_ids: list[str] | None = None
     series_tags: list[str] | None = None
     is_starred: bool = False
+    auto_generate_audio: bool = False
 
 
 @dataclass(frozen=True)
@@ -87,7 +88,17 @@ class UrlImportService:
             series_tags=payload.series_tags,
             is_starred=payload.is_starred,
         )
-        job = create_url_import_job(self.db, course, json.dumps({"url": payload.url}, ensure_ascii=False))
+        job = create_url_import_job(
+            self.db,
+            course,
+            json.dumps(
+                {
+                    "url": payload.url,
+                    "auto_generate_audio": payload.auto_generate_audio,
+                },
+                ensure_ascii=False,
+            ),
+        )
         self.db.commit()
         self.db.refresh(course)
         self.db.refresh(job)
@@ -137,7 +148,7 @@ class UrlImportService:
         course = self._get_course(job.course_id)
         if job.status == JobStatus.SUCCEEDED:
             return UrlImportResult(course.id, job.id, course.status.value)
-        if job.status == JobStatus.RUNNING:
+        if job.status == JobStatus.RUNNING and job.started_at is not None:
             return UrlImportResult(course.id, job.id, job.status.value)
         try:
             payload = json.loads(job.input_json or "{}")
@@ -231,6 +242,11 @@ class UrlImportService:
 
     def mark_queue_failed(self, job_id: str, message: str) -> None:
         self._mark_failed(job_id, "queue_unavailable", message)
+
+    def mark_queue_running(self, job_id: str) -> None:
+        job = self._get_job(job_id)
+        job.status = JobStatus.RUNNING
+        self.db.commit()
 
     def _extract_for_job(
         self,

@@ -108,7 +108,7 @@ const themeTokens: Record<ThemeId, ThemeTokens> = {
     "--pa-bg": "#11161c",
     "--pa-surface": "#1a212b",
     "--pa-muted-surface": "#202936",
-    "--pa-ink": "#f4efe7",
+    "--pa-ink": "#ffffff",
     "--pa-muted": "#a6b0ba",
     "--pa-line": "rgba(255, 255, 255, 0.08)",
     "--pa-green": "#8dd6c7",

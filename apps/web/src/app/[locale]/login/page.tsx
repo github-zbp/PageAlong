@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { AuthPageShell } from "@/components/AuthPageShell";
+import { AuthConsentRow } from "@/components/AuthConsentRow";
 import { loginWithPassword } from "@/lib/api";
 import { dictionaries, homepageHref, normalizeLocale, type Locale } from "@/lib/i18n";
 import { importTextHref, marketingFooterLinks, marketingFooterNote, marketingNavLinks } from "@/lib/site";
@@ -41,14 +42,20 @@ export default function LoginPage({ params }: { params: { locale: string } }) {
     zh: authLocaleHref("login", locale, "zh", explicitNextPath),
     en: authLocaleHref("login", locale, "en", explicitNextPath)
   } satisfies Record<Locale, string>;
+  const footerLinks = marketingFooterLinks(locale);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [consented, setConsented] = useState(true);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (!consented) {
+      setError(dictionary.auth.consentRequired);
+      return;
+    }
     setLoading(true);
     try {
       const user = await loginWithPassword({ email, password });
@@ -69,7 +76,7 @@ export default function LoginPage({ params }: { params: { locale: string } }) {
       navLinks={marketingNavLinks(locale)}
       localeLinks={localeLinks}
       primaryCta={{ href: importTextHref(locale), label: locale === "zh" ? "免费使用" : "Use for free" }}
-      footerLinks={marketingFooterLinks(locale)}
+      footerLinks={footerLinks}
       footerNote={marketingFooterNote[locale]}
       backHref={homepageHref(locale)}
       backLabel={dictionary.auth.backToHome}
@@ -96,6 +103,7 @@ export default function LoginPage({ params }: { params: { locale: string } }) {
               value={password}
             />
           </label>
+          <AuthConsentRow checked={consented} label={dictionary.auth.consentLabel} links={footerLinks} onChange={setConsented} />
           {error ? <p className="text-sm text-[var(--pa-error)]">{error}</p> : null}
           <button
             className="pa-focus flex h-11 w-full items-center justify-center rounded-md bg-[var(--pa-green)] px-4 text-sm font-medium text-white"

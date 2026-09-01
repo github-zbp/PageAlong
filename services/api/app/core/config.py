@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     auth_code_max_attempts: int = 5
     auth_code_hash_secret: str = "dev-auth-code-secret"
     auth_verification_store_backend: str = "memory"
+    auth_wechat_enabled: bool = False
+    auth_one_tap_enabled: bool = False
 
     brevo_smtp_host: str = "smtp-relay.brevo.com"
     brevo_smtp_port: int = 587

@@ -1,4 +1,11 @@
 import type {
+  AdminUser,
+  AdminAnnouncementDetail,
+  AdminAnnouncementListItem,
+  AdminBlogDetail,
+  AdminBlogListItem,
+  AdminCourseDetail,
+  AdminCourseListItem,
   AdminUserList,
   AuthResponse,
   AuthUser,
@@ -431,6 +438,298 @@ export async function listAdminUsers(input: {
   return body.items;
 }
 
+export async function listReaderAdminUsers(input: {
+  query?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<AdminUser>> {
+  return apiJson<PaginatedList<AdminUser>>(
+    `/admin/users${queryString({
+      query: input.query,
+      page: input.page ?? 1,
+      page_size: input.pageSize ?? 20
+    })}`,
+    { cache: "no-store" },
+    "Failed to load users"
+  );
+}
+
+export async function recordDashboardActivity(locale: "zh" | "en"): Promise<void> {
+  await apiNoContent(
+    "/auth/me/dashboard-activity",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ locale })
+    },
+    "Failed to record dashboard activity"
+  );
+}
+
+export async function createAdminImpersonation(targetUserId: string): Promise<{
+  token: string;
+  target_user: AdminUser;
+  expires_at: string;
+}> {
+  return apiJson(
+    "/admin/impersonation",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ target_user_id: targetUserId })
+    },
+    "Failed to enter user page"
+  );
+}
+
+export async function listAdminBlogs(input: {
+  query?: string;
+  status?: string;
+  language?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<AdminBlogListItem>> {
+  return apiJson<PaginatedList<AdminBlogListItem>>(
+    `/admin/blogs${queryString({
+      query: input.query,
+      status: input.status,
+      language: input.language,
+      page: input.page ?? 1,
+      page_size: input.pageSize ?? 20
+    })}`,
+    { cache: "no-store" },
+    "Failed to load blogs"
+  );
+}
+
+export async function getAdminBlog(blogId: string): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(`/admin/blogs/${blogId}`, { cache: "no-store" }, "Failed to load blog");
+}
+
+export async function createAdminBlog(
+  input: Partial<AdminBlogDetail> & {
+    title: string;
+    slug: string;
+    language: "zh" | "en";
+    body_markdown: string;
+  }
+): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(
+    "/admin/blogs",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify(input)
+    },
+    "Failed to create blog"
+  );
+}
+
+export async function updateAdminBlog(blogId: string, input: Partial<AdminBlogDetail>): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(
+    `/admin/blogs/${blogId}`,
+    {
+      method: "PATCH",
+      headers: jsonHeaders(),
+      body: JSON.stringify(input)
+    },
+    "Failed to save blog"
+  );
+}
+
+export async function publishAdminBlog(blogId: string): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(`/admin/blogs/${blogId}/publish`, { method: "POST" }, "Failed to publish blog");
+}
+
+export async function offlineAdminBlog(blogId: string): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(`/admin/blogs/${blogId}/offline`, { method: "POST" }, "Failed to offline blog");
+}
+
+export async function deleteAdminBlog(blogId: string): Promise<void> {
+  await apiNoContent(`/admin/blogs/${blogId}`, { method: "DELETE" }, "Failed to delete blog");
+}
+
+export async function bulkAdminBlogs(
+  ids: string[],
+  action: "publish" | "offline" | "delete"
+): Promise<{ updated_count: number; failed_ids: string[] }> {
+  return apiJson<{ updated_count: number; failed_ids: string[] }>(
+    "/admin/blogs/bulk",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ ids, action })
+    },
+    "Failed to update blogs"
+  );
+}
+
+export async function listPublicBlogs(locale: "zh" | "en"): Promise<PaginatedList<AdminBlogListItem>> {
+  return apiJson<PaginatedList<AdminBlogListItem>>(
+    `/blogs${queryString({ lang: locale })}`,
+    { cache: "no-store" },
+    "Failed to load blogs",
+    false
+  );
+}
+
+export async function getPublicBlog(slug: string, locale: "zh" | "en"): Promise<AdminBlogDetail> {
+  return apiJson<AdminBlogDetail>(
+    `/blogs/${slug}${queryString({ lang: locale })}`,
+    { cache: "no-store" },
+    "Failed to load blog",
+    false
+  );
+}
+
+export async function listAdminCourses(input: {
+  query?: string;
+  email?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<AdminCourseListItem>> {
+  return apiJson<PaginatedList<AdminCourseListItem>>(
+    `/admin/courses${queryString({
+      query: input.query,
+      email: input.email,
+      page: input.page ?? 1,
+      page_size: input.pageSize ?? 20
+    })}`,
+    { cache: "no-store" },
+    "Failed to load courses"
+  );
+}
+
+export async function getAdminCourse(courseId: string): Promise<AdminCourseDetail> {
+  return apiJson<AdminCourseDetail>(`/admin/courses/${courseId}`, { cache: "no-store" }, "Failed to load course");
+}
+
+export async function deleteAdminCourse(courseId: string): Promise<void> {
+  await apiNoContent(`/admin/courses/${courseId}`, { method: "DELETE" }, "Failed to delete course");
+}
+
+export async function bulkDeleteAdminCourses(
+  ids: string[]
+): Promise<{ updated_count: number; failed_ids: string[] }> {
+  return apiJson<{ updated_count: number; failed_ids: string[] }>(
+    "/admin/courses/bulk-delete",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ ids })
+    },
+    "Failed to delete courses"
+  );
+}
+
+export async function listAdminAnnouncements(input: {
+  query?: string;
+  status?: string;
+  language?: string;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<AdminAnnouncementListItem>> {
+  return apiJson<PaginatedList<AdminAnnouncementListItem>>(
+    `/admin/announcements${queryString({
+      query: input.query,
+      status: input.status,
+      language: input.language,
+      page: input.page ?? 1,
+      page_size: input.pageSize ?? 20
+    })}`,
+    { cache: "no-store" },
+    "Failed to load announcements"
+  );
+}
+
+export async function getAdminAnnouncement(announcementId: string): Promise<AdminAnnouncementDetail> {
+  return apiJson<AdminAnnouncementDetail>(
+    `/admin/announcements/${announcementId}`,
+    { cache: "no-store" },
+    "Failed to load announcement"
+  );
+}
+
+export async function createAdminAnnouncement(input: {
+  title: string;
+  language: "zh" | "en";
+  body_markdown: string;
+  roadmap_status: "planned" | "in_progress" | "shipped";
+  display_position: "dashboard" | "announcement_page" | "global_banner";
+  sort_order: number;
+  is_pinned: boolean;
+}): Promise<AdminAnnouncementDetail> {
+  return apiJson<AdminAnnouncementDetail>(
+    "/admin/announcements",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify(input)
+    },
+    "Failed to create announcement"
+  );
+}
+
+export async function updateAdminAnnouncement(
+  announcementId: string,
+  input: Partial<AdminAnnouncementDetail>
+): Promise<AdminAnnouncementDetail> {
+  return apiJson<AdminAnnouncementDetail>(
+    `/admin/announcements/${announcementId}`,
+    {
+      method: "PATCH",
+      headers: jsonHeaders(),
+      body: JSON.stringify(input)
+    },
+    "Failed to save announcement"
+  );
+}
+
+export async function publishAdminAnnouncement(announcementId: string): Promise<AdminAnnouncementDetail> {
+  return apiJson<AdminAnnouncementDetail>(
+    `/admin/announcements/${announcementId}/publish`,
+    { method: "POST" },
+    "Failed to publish announcement"
+  );
+}
+
+export async function offlineAdminAnnouncement(announcementId: string): Promise<AdminAnnouncementDetail> {
+  return apiJson<AdminAnnouncementDetail>(
+    `/admin/announcements/${announcementId}/offline`,
+    { method: "POST" },
+    "Failed to offline announcement"
+  );
+}
+
+export async function deleteAdminAnnouncement(announcementId: string): Promise<void> {
+  await apiNoContent(
+    `/admin/announcements/${announcementId}`,
+    { method: "DELETE" },
+    "Failed to delete announcement"
+  );
+}
+
+export async function reorderAdminAnnouncements(items: Array<{ id: string; sort_order: number }>): Promise<void> {
+  await apiNoContent(
+    "/admin/announcements/reorder",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ items })
+    },
+    "Failed to reorder announcements"
+  );
+}
+
+export async function listDashboardAnnouncements(locale: "zh" | "en"): Promise<PaginatedList<AdminAnnouncementListItem>> {
+  return apiJson<PaginatedList<AdminAnnouncementListItem>>(
+    `/announcements/dashboard${queryString({ lang: locale })}`,
+    { cache: "no-store" },
+    "Failed to load announcements",
+    false
+  );
+}
+
 export async function updateAdminUserStatus(userId: string, action: "enable" | "disable"): Promise<AuthUser> {
   return apiJson<AuthUser>(
     `/admin/users/${userId}/${action}`,
@@ -484,6 +783,7 @@ export async function submitFeedback(input: {
 export async function listCourses(input: {
   libraryType?: "all" | "fragmented" | "series";
   query?: string;
+  searchScope?: "all" | "title";
   tag?: string;
   starred?: boolean;
 } = {}): Promise<CourseSummary[]> {
@@ -491,6 +791,7 @@ export async function listCourses(input: {
     const body = await listCoursesPage({
       libraryType: input.libraryType,
       query: input.query,
+      searchScope: input.searchScope,
       tag: input.tag,
       starred: input.starred,
       page,
@@ -503,6 +804,7 @@ export async function listCourses(input: {
 export async function listCoursesPage(input: {
   libraryType?: "all" | "fragmented" | "series";
   query?: string;
+  searchScope?: "all" | "title";
   tag?: string;
   starred?: boolean;
   page?: number;
@@ -514,6 +816,7 @@ export async function listCoursesPage(input: {
     `/courses${queryString({
       library_type: input.libraryType,
       query: input.query,
+      search_scope: input.searchScope ?? (input.query ? "title" : undefined),
       tag: input.tag,
       starred: input.starred,
       page,

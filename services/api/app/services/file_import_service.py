@@ -89,6 +89,15 @@ class FileImportService:
         self.db.refresh(batch)
         return batch
 
+    def list_batches(self, user_id: str) -> list[FileImportBatch]:
+        return list(
+            self.db.scalars(
+                select(FileImportBatch)
+                .where(FileImportBatch.user_id == user_id)
+                .order_by(FileImportBatch.created_at.desc(), FileImportBatch.id.desc())
+            )
+        )
+
     def process_item(self, item_id: str) -> FileImportResult:
         item = self._get_item(item_id)
         if item.status in {FileImportItemStatus.SUCCEEDED, FileImportItemStatus.FAILED}:
@@ -216,6 +225,30 @@ class FileImportService:
                 .order_by(FileImportItem.created_at, FileImportItem.id)
             )
         )
+
+    def reset_retryable_items_for_batch(self, batch_id: str, user_id: str) -> list[FileImportItem]:
+        batch = self.db.scalar(
+            select(FileImportBatch).where(
+                FileImportBatch.id == batch_id,
+                FileImportBatch.user_id == user_id,
+            )
+        )
+        if batch is None:
+            raise ValueError("File import batch not found")
+        retryable_items = [
+            item
+            for item in self.db.scalars(select(FileImportItem).where(FileImportItem.batch_id == batch_id))
+            if item.status in {FileImportItemStatus.FAILED, FileImportItemStatus.PENDING}
+        ]
+        for item in retryable_items:
+            item.status = FileImportItemStatus.PENDING
+            item.error_code = None
+            item.error_message = None
+            item.started_at = None
+            item.finished_at = None
+        self._recompute_batch(batch_id)
+        self.db.commit()
+        return retryable_items
 
     def _get_item(self, item_id: str) -> FileImportItem:
         item = self.db.get(FileImportItem, item_id)
@@ -360,6 +393,7 @@ class FileImportService:
             else:
                 batch.status = FileImportBatchStatus.FAILED
             return
+        batch.finished_at = None
         batch.status = FileImportBatchStatus.RUNNING if running_count else FileImportBatchStatus.PENDING
 
 

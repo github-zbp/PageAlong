@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from app.models.course import Course
+from app.models.course import CourseSeries, CourseStatus, SourceType
 
 
 def stub_audio_queue(monkeypatch):
@@ -18,6 +21,36 @@ def create_text_course(client, title: str, **overrides):
     response = client.post("/courses", json=payload)
     assert response.status_code == 201
     return response.json()
+
+
+def add_recent_tie_course(db_session, course_id: str, title: str, timestamp: datetime, series_id: str | None = None):
+    course = Course(
+        id=course_id,
+        user_id="test_user",
+        title=title,
+        source_type=SourceType.MANUAL_TEXT,
+        status=CourseStatus.READY,
+        word_count=120,
+        duration_seconds=60,
+        last_playback_position_seconds=0,
+        series_id=series_id,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    db_session.add(course)
+    return course
+
+
+def add_recent_tie_series(db_session, series_id: str, title: str, timestamp: datetime):
+    series = CourseSeries(
+        id=series_id,
+        user_id="test_user",
+        title=title,
+        created_at=timestamp,
+        updated_at=timestamp,
+    )
+    db_session.add(series)
+    return series
 
 
 def test_fragmented_courses_and_series_are_listed_separately(client, monkeypatch):
@@ -65,6 +98,152 @@ def test_library_filters_by_query_tag_and_starred(client, monkeypatch):
 
     assert [item["title"] for item in fragment_query.json()["items"]] == ["通勤碎片"]
     assert [item["title"] for item in series_query.json()["items"]] == ["编程入门"]
+
+
+def test_course_search_defaults_to_title_scope(client, db_session, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    first = client.post(
+        "/courses",
+        json={"title": "电池寿命研究", "source_type": "manual_text", "text": "这篇正文提到了芯片。"},
+    ).json()
+    client.post(
+        "/courses",
+        json={"title": "芯片访谈", "source_type": "manual_text", "text": "普通正文。"},
+    )
+
+    response = client.get("/courses", params={"query": "芯片"})
+
+    assert response.status_code == 200
+    titles = [item["title"] for item in response.json()["items"]]
+    assert titles == ["芯片访谈"]
+    assert first["title"] not in titles
+
+
+def test_course_search_rejects_unknown_search_scope(client):
+    response = client.get("/courses", params={"query": "a", "search_scope": "body"})
+
+    assert response.status_code == 422
+    assert "search_scope" in response.json()["detail"]
+
+
+def test_courses_can_sort_by_title(client):
+    client.post("/courses", json={"title": "B 课程", "source_type": "manual_text", "text": "正文"})
+    client.post("/courses", json={"title": "A 课程", "source_type": "manual_text", "text": "正文"})
+
+    response = client.get("/courses", params={"sort": "title"})
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]][:2] == ["A 课程", "B 课程"]
+
+
+def test_courses_can_sort_starred_first(client):
+    client.post("/courses", json={"title": "普通课程", "source_type": "manual_text", "text": "正文"})
+    client.post(
+        "/courses",
+        json={"title": "星标课程", "source_type": "manual_text", "text": "正文", "is_starred": True},
+    )
+
+    response = client.get("/courses", params={"sort": "starred"})
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["title"] == "星标课程"
+
+
+def test_courses_reject_unknown_sort(client):
+    response = client.get("/courses", params={"sort": "duration"})
+
+    assert response.status_code == 422
+    assert "sort" in response.json()["detail"]
+
+
+def test_series_can_sort_by_title(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    create_text_course(client, "第一课", series_title="B 系列")
+    create_text_course(client, "第二课", series_title="A 系列")
+
+    response = client.get("/courses/series", params={"sort": "title"})
+
+    assert response.status_code == 200
+    assert [item["title"] for item in response.json()["items"]][:2] == ["A 系列", "B 系列"]
+
+
+def test_series_reject_unknown_sort(client):
+    response = client.get("/courses/series", params={"sort": "duration"})
+
+    assert response.status_code == 422
+    assert "sort" in response.json()["detail"]
+
+
+def test_sorted_library_pagination_applies_after_sorting(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    for title in ["课程 C", "课程 A", "课程 B"]:
+        create_text_course(client, title)
+    for title in ["系列 C", "系列 A", "系列 B"]:
+        create_text_course(client, "第一课", series_title=title)
+
+    course_page_1 = client.get(
+        "/courses", params={"library_type": "fragmented", "sort": "title", "page": 1, "page_size": 1}
+    )
+    course_page_2 = client.get(
+        "/courses", params={"library_type": "fragmented", "sort": "title", "page": 2, "page_size": 1}
+    )
+    series_page_1 = client.get("/courses/series", params={"sort": "title", "page": 1, "page_size": 1})
+    series_page_2 = client.get("/courses/series", params={"sort": "title", "page": 2, "page_size": 1})
+
+    assert course_page_1.status_code == 200
+    assert course_page_2.status_code == 200
+    assert course_page_1.json()["items"][0]["title"] == "课程 A"
+    assert course_page_2.json()["items"][0]["title"] == "课程 B"
+    assert course_page_2.json()["pagination"] == {
+        "page": 2,
+        "page_size": 1,
+        "total": 3,
+        "total_pages": 3,
+        "has_previous": True,
+        "has_next": True,
+    }
+
+    assert series_page_1.status_code == 200
+    assert series_page_2.status_code == 200
+    assert series_page_1.json()["items"][0]["title"] == "系列 A"
+    assert series_page_2.json()["items"][0]["title"] == "系列 B"
+    assert series_page_2.json()["pagination"] == {
+        "page": 2,
+        "page_size": 1,
+        "total": 3,
+        "total_pages": 3,
+        "has_previous": True,
+        "has_next": True,
+    }
+
+
+def test_recent_library_sort_breaks_timestamp_ties_by_id(client, db_session):
+    timestamp = datetime(2026, 8, 27, 12, 0, 0)
+    for suffix in ["a", "b", "c"]:
+        add_recent_tie_course(db_session, f"course-{suffix}", f"课程 {suffix.upper()}", timestamp)
+    for suffix in ["a", "b", "c"]:
+        add_recent_tie_series(db_session, f"series-{suffix}", f"系列 {suffix.upper()}", timestamp)
+    db_session.commit()
+
+    course_page_1 = client.get(
+        "/courses",
+        params={"library_type": "fragmented", "sort": "recent", "page": 1, "page_size": 1},
+    )
+    course_page_2 = client.get(
+        "/courses",
+        params={"library_type": "fragmented", "sort": "recent", "page": 2, "page_size": 1},
+    )
+    series_page_1 = client.get("/courses/series", params={"sort": "recent", "page": 1, "page_size": 1})
+    series_page_2 = client.get("/courses/series", params={"sort": "recent", "page": 2, "page_size": 1})
+
+    assert course_page_1.status_code == 200
+    assert course_page_2.status_code == 200
+    assert [item["title"] for item in course_page_1.json()["items"]] == ["课程 C"]
+    assert [item["title"] for item in course_page_2.json()["items"]] == ["课程 B"]
+    assert series_page_1.status_code == 200
+    assert series_page_2.status_code == 200
+    assert [item["title"] for item in series_page_1.json()["items"]] == ["系列 C"]
+    assert [item["title"] for item in series_page_2.json()["items"]] == ["系列 B"]
 
 
 def test_library_list_paginates_filtered_results(client, monkeypatch):
@@ -150,6 +329,23 @@ def test_course_can_move_between_fragmented_and_series(client, db_session, monke
     assert course.series_id is None
 
 
+def test_course_star_updates_only_the_target_course_inside_a_series(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    first = create_text_course(client, "第一课", series_title="英语精听")
+    second = create_text_course(client, "第二课", series_id=first["series_id"])
+
+    updated = client.patch(f"/courses/{first['id']}/library", json={"is_starred": True})
+
+    assert updated.status_code == 200
+    assert updated.json()["is_starred"] is True
+
+    detail = client.get(f"/courses/series/{first['series_id']}").json()
+    course_star_map = {course["id"]: course["is_starred"] for course in detail["courses"]}
+    assert course_star_map[first["id"]] is True
+    assert course_star_map[second["id"]] is False
+    assert client.get("/courses/series").json()["items"][0]["is_starred"] is False
+
+
 def test_series_can_be_created_listed_read_and_deleted_only_when_empty(client, monkeypatch):
     stub_audio_queue(monkeypatch)
 
@@ -180,6 +376,24 @@ def test_series_can_be_created_listed_read_and_deleted_only_when_empty(client, m
     assert emptied.status_code == 200
     assert emptied.json()["moved_count"] == 2
     assert client.get("/courses/series").json()["items"][0]["article_count"] == 0
+
+
+def test_series_detail_returns_course_outline(client, monkeypatch):
+    stub_audio_queue(monkeypatch)
+    first = create_text_course(
+        client,
+        "第一课",
+        series_title="英语精听",
+        text="# Lesson One\n\n正文。\n\n## Warmup",
+    )
+
+    detail = client.get(f"/courses/series/{first['series_id']}")
+
+    assert detail.status_code == 200
+    assert detail.json()["courses"][0]["outline"] == [
+        {"id": "heading-lesson-one", "depth": 1, "title": "Lesson One"},
+        {"id": "heading-warmup", "depth": 2, "title": "Warmup"},
+    ]
 
 
 def test_created_series_persists_across_fresh_requests(monkeypatch):

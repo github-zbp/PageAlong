@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   title: "用户条款 - 页相随 PageAlong"
 };
 
+export const dynamic = "force-dynamic";
+
 const termsCopy = {
   zh: {
     eyebrow: "用户条款",

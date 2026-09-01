@@ -5,6 +5,12 @@ export type Sentence = {
   audio_end_seconds: number | null;
 };
 
+export type CourseOutlineItem = {
+  id: string;
+  depth: 1 | 2 | 3 | 4;
+  title: string;
+};
+
 export type CourseSource = {
   source_kind: string | null;
   locator: string | null;
@@ -78,6 +84,7 @@ export type CourseSummary = CourseBase & {
 
 export type Course = CourseBase & {
   content_markdown: string | null;
+  outline?: CourseOutlineItem[];
   source: CourseSource | null;
   sentences: Sentence[];
 };
@@ -178,13 +185,83 @@ export type AuthUser = {
   created_at: string;
 };
 
+export type AdminUser = AuthUser & {
+  last_dashboard_at: string | null;
+  last_dashboard_locale: "zh" | "en" | "";
+};
+
 export type AuthResponse = {
   token: string;
   user: AuthUser;
 };
 
-export type AdminUserList = {
-  items: AuthUser[];
+export type AdminUserList = PaginatedList<AdminUser>;
+
+export type AdminResourceCounts = {
+  image: number;
+  audio: number;
+  pdf: number;
+  docx: number;
+  markdown: number;
+};
+
+export type AdminCourseListItem = {
+  id: string;
+  title: string;
+  user_email: string;
+  source_type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  resource_counts: AdminResourceCounts;
+  audio_download_url: string | null;
+  pdf_download_url: string | null;
+  docx_download_url: string | null;
+  markdown_download_url: string | null;
+};
+
+export type AdminCourseDetail = AdminCourseListItem & {
+  content_markdown: string | null;
+};
+
+export type AdminBlogListItem = {
+  id: string;
+  title: string;
+  slug: string;
+  language: "zh" | "en";
+  author_email: string;
+  summary: string;
+  cover_image_url: string;
+  status: "draft" | "published" | "offline" | "deleted";
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminBlogDetail = AdminBlogListItem & {
+  body_markdown: string;
+  body_html: string;
+  seo_title: string;
+  seo_description: string;
+};
+
+export type AdminAnnouncementListItem = {
+  id: string;
+  title: string;
+  language: "zh" | "en";
+  status: "draft" | "published" | "offline" | "deleted";
+  roadmap_status: "planned" | "in_progress" | "shipped";
+  display_position: "dashboard" | "announcement_page" | "global_banner";
+  sort_order: number;
+  is_pinned: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AdminAnnouncementDetail = AdminAnnouncementListItem & {
+  body_markdown: string;
+  body_html: string;
 };
 
 export type FeedbackCategory = "suggestion" | "bug" | "feature";

@@ -12,6 +12,7 @@ from app.api.deps import get_current_user_id
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.course import ArticleImageAsset, ArticleText, AudioAsset, Course, CourseSeries, CourseStatus, Sentence
+from app.models.file_resource import FileResource, ResourceStatus, ResourceVariant
 from app.models.file_import import FileImportBatch, FileImportItem, FileImportSourceMode
 from app.models.generation_job import GenerationJob, JobStatus, JobType
 from app.models.playback_progress import PlaybackProgress
@@ -20,6 +21,7 @@ from app.schemas.course import (
     CourseExtensionSyncCreate,
     CourseLibraryUpdate,
     CourseList,
+    CourseOutlineItemRead,
     CourseRead,
     CourseSectionRead,
     CourseSourceRead,
@@ -40,7 +42,7 @@ from app.schemas.course import (
     TagUpdate,
 )
 from app.schemas.job import DownloadRequestRead
-from app.schemas.file_import import FileImportBatchRead, FileImportItemRead
+from app.schemas.file_import import FileImportBatchList, FileImportBatchRead, FileImportItemRead
 from app.schemas.playback import PlaybackProgressRead, PlaybackProgressUpdate
 from app.services.content_metrics import (
     CHINESE_READING_CHARS_PER_MINUTE,
@@ -50,6 +52,7 @@ from app.services.content_metrics import (
 )
 from app.services.course_export_service import CourseExportService, safe_filename
 from app.services.file_import_service import FileImportService, FileImportUploadInput
+from app.services.markdown_outline import MarkdownOutlineItem, build_markdown_outline, decode_markdown_outline
 from app.services.url_import_service import ExtensionImageInput, ExtensionSyncInput, ImportUrlInput, UrlImportService
 from app.services.course_service import (
     AudioGenerationQueueUnavailable,
@@ -69,6 +72,7 @@ from app.services.course_service import (
     list_tags,
     move_series_to_fragments,
     request_audio_generation,
+    SUPPORTED_LIBRARY_SORTS,
     update_course_library,
     update_series_metadata,
 )
@@ -145,6 +149,19 @@ def parse_source_summary(article_text: ArticleText | None) -> CourseSourceRead |
     if not isinstance(payload, dict):
         return None
     return CourseSourceRead(**payload)
+
+
+def outline_for_article_text(article_text: ArticleText | None) -> list[MarkdownOutlineItem]:
+    if article_text is None:
+        return []
+
+    raw_outline = getattr(article_text, "outline_json", None)
+    if raw_outline:
+        decoded_outline = decode_markdown_outline(raw_outline)
+        if decoded_outline or raw_outline.strip() == "[]":
+            return decoded_outline
+
+    return build_markdown_outline(article_text.content_markdown or article_text.text or "")
 
 
 def is_absolute_http_url(value: str | None) -> bool:
@@ -316,6 +333,10 @@ def serialize_course(course: Course, db: Session | None = None) -> CourseRead:
             )
             for section in sorted(course.sections, key=lambda item: item.section_index)
         ],
+        outline=[
+            CourseOutlineItemRead(id=item.id, depth=item.depth, title=item.title)
+            for item in outline_for_article_text(article_text)
+        ],
         content_markdown=article_text.content_markdown if article_text is not None else None,
         source=parse_source_summary(article_text),
         import_status=import_job.status.value if import_job is not None else None,
@@ -462,6 +483,7 @@ def create_url_import_course(
                 tags=direct_tags,
                 series_tags=series_tags,
                 is_starred=series_starred if series_starred is not None else False,
+                auto_generate_audio=payload.auto_generate_audio,
             ),
         )
     except ValueError as exc:
@@ -577,8 +599,10 @@ async def create_file_import_batch(
 def get_courses(
     library_type: str | None = None,
     query: str | None = None,
+    search_scope: str = "title",
     tag: str | None = None,
     starred: bool | None = None,
+    sort: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -586,14 +610,20 @@ def get_courses(
 ) -> CourseList:
     if library_type not in {None, "all", "fragmented", "series"}:
         raise HTTPException(status_code=422, detail="library_type must be all, fragmented, or series")
+    if search_scope not in {"all", "title"}:
+        raise HTTPException(status_code=422, detail="search_scope must be all or title")
+    if sort not in {None, *SUPPORTED_LIBRARY_SORTS}:
+        raise HTTPException(status_code=422, detail="sort must be recent, created_at, updated_at, title, or starred")
     normalized_library_type = None if library_type in {None, "all"} else library_type
     courses = list_courses(
         db,
         user_id,
         library_type=normalized_library_type,
         query=query,
+        search_scope=search_scope,
         tag=tag,
         starred=starred,
+        sort=sort or "recent",
     )
     paginated_courses, pagination = paginate_sequence(courses, page, page_size)
     sentence_counts = sentence_counts_for_courses(db, [course.id for course in paginated_courses])
@@ -611,12 +641,15 @@ def get_course_series(
     query: str | None = None,
     tag: str | None = None,
     starred: bool | None = None,
+    sort: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
     db: Session = Depends(get_db),
     user_id: str = Depends(get_current_user_id),
 ) -> CourseSeriesList:
-    series_items = list_series(db, user_id, query=query, tag=tag, starred=starred)
+    if sort not in {None, *SUPPORTED_LIBRARY_SORTS}:
+        raise HTTPException(status_code=422, detail="sort must be recent, created_at, updated_at, title, or starred")
+    series_items = list_series(db, user_id, query=query, tag=tag, starred=starred, sort=sort or "recent")
     paginated_series, pagination = paginate_sequence(series_items, page, page_size)
     return CourseSeriesList(
         items=[
@@ -761,6 +794,22 @@ def delete_course_tag(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.get("/file-import-batches", response_model=FileImportBatchList)
+def list_file_import_batches(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> FileImportBatchList:
+    service = FileImportService(db)
+    batches = service.list_batches(user_id)
+    paginated_batches, pagination = paginate_sequence(batches, page, page_size)
+    return FileImportBatchList(
+        items=[serialize_file_import_batch(batch, db) for batch in paginated_batches],
+        pagination=pagination,
+    )
+
+
 @router.get("/file-import-batches/{batch_id}", response_model=FileImportBatchRead)
 def get_file_import_batch(
     batch_id: str,
@@ -775,6 +824,36 @@ def get_file_import_batch(
     )
     if batch is None:
         raise HTTPException(status_code=404, detail="File import batch not found")
+    return serialize_file_import_batch(batch, db)
+
+
+@router.post("/file-import-batches/{batch_id}/retry", response_model=FileImportBatchRead, status_code=status.HTTP_202_ACCEPTED)
+def retry_file_import_batch(
+    batch_id: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> FileImportBatchRead:
+    service = FileImportService(db)
+    try:
+        retryable_items = service.reset_retryable_items_for_batch(batch_id, user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="File import batch not found") from exc
+
+    for item in retryable_items:
+        try:
+            enqueue_file_import(item.id)
+        except Exception as exc:
+            service.mark_item_failed(item.id, "queue_unavailable", str(exc))
+
+    batch = db.scalar(
+        select(FileImportBatch).where(
+            FileImportBatch.id == batch_id,
+            FileImportBatch.user_id == user_id,
+        )
+    )
+    if batch is None:
+        raise HTTPException(status_code=404, detail="File import batch not found")
+    db.refresh(batch)
     return serialize_file_import_batch(batch, db)
 
 
@@ -1005,6 +1084,71 @@ def download_course_audio(
     return FileResponse(
         audio_path,
         media_type=audio_asset.content_type or f"audio/{audio_asset.format}",
+        filename=filename,
+    )
+
+
+@router.get("/{course_id}/resources/{resource_id}/download")
+def download_course_resource(
+    course_id: str,
+    resource_id: str,
+    _request: Request,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user_id),
+) -> Response:
+    course = get_user_course_or_404(db, user_id, course_id)
+    resource = db.get(FileResource, resource_id)
+    if (
+        resource is None
+        or resource.user_id != user_id
+        or resource.owner_type != "course"
+        or resource.owner_id != course.id
+        or resource.status != ResourceStatus.READY
+    ):
+        raise HTTPException(status_code=404, detail="Course resource not found")
+
+    filename = resource.filename.strip()
+    if not filename:
+        base_name = safe_filename(resource.title or course.title or "download")
+        suffix = {
+            ResourceVariant.MARKDOWN: "md",
+            ResourceVariant.DOCX: "docx",
+            ResourceVariant.PDF: "pdf",
+            ResourceVariant.AUDIO: "mp3",
+        }.get(resource.resource_variant)
+        filename = f"{base_name}.{suffix}" if suffix else base_name
+
+    if resource.storage_backend in {"s3", "minio", "r2"}:
+        bucket = resource.bucket or settings.s3_bucket
+        object_key = resource.object_key or resource.object_path
+        try:
+            object_response = get_s3_client().get_object(Bucket=bucket, Key=object_key)
+            body = object_response["Body"].read()
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail="Course resource object storage read failed") from exc
+
+        headers = {
+            "Cache-Control": f"private, max-age={settings.tts_signed_url_ttl_seconds}",
+            "Content-Disposition": attachment_disposition(filename),
+        }
+        if object_response.get("ContentLength") is not None:
+            headers["Content-Length"] = str(object_response["ContentLength"])
+        if object_response.get("ETag"):
+            headers["ETag"] = object_response["ETag"]
+
+        return Response(
+            content=body,
+            media_type=resource.content_type or "application/octet-stream",
+            headers=headers,
+        )
+
+    resource_path = Path(resource.object_path)
+    if not resource_path.exists():
+        raise HTTPException(status_code=404, detail="Course resource file not found")
+
+    return FileResponse(
+        resource_path,
+        media_type=resource.content_type or "application/octet-stream",
         filename=filename,
     )
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { dictionaries, type Locale } from "@/lib/i18n";
 
 const statusTone: Record<string, string> = {
@@ -12,14 +13,29 @@ const statusTone: Record<string, string> = {
   deleted: "border-[var(--pa-line)] bg-[var(--pa-muted-surface)] text-[var(--pa-muted)]"
 };
 
-export function StatusBadge({ locale, status }: { locale: Locale; status: string }) {
+export function StatusBadge({ locale, status, href }: { locale: Locale; status: string; href?: string }) {
   const statuses = dictionaries[locale].status as Record<string, string>;
+  const dictionary = dictionaries[locale];
   const label = statuses[status] ?? status;
   const tone = statusTone[status] ?? "border-[var(--pa-line)] bg-[var(--pa-muted-surface)] text-[var(--pa-muted)]";
+  const className = [
+    "inline-flex rounded-full border px-2.5 py-1 text-xs font-medium",
+    tone,
+    href ? "cursor-pointer transition hover:border-[var(--pa-green)] hover:bg-[var(--pa-green-soft)] hover:text-[var(--pa-green)]" : ""
+  ].join(" ");
 
-  return (
-    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${tone}`}>
-      {label}
-    </span>
-  );
+  if (href) {
+    return (
+      <Link
+        aria-label={`${label}: ${dictionary.downloads.viewTasks}`}
+        className={className}
+        href={href}
+        title={dictionary.downloads.viewTasks}
+      >
+        {label}
+      </Link>
+    );
+  }
+
+  return <span className={className}>{label}</span>;
 }

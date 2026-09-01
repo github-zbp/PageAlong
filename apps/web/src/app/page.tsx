@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "可生成音频课程并下载的碎片化阅读器。PageAlong turns saved content into resumable audio courses."
 };
 
+export const dynamic = "force-dynamic";
+
 type HomeLocale = "zh" | "en";
 
 type NavLink = {
@@ -220,7 +222,7 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       footnote: "内容变声轨把碎片内容连到正在播放的课程。"
     },
     fitSection: {
-      eyebrow: "适合谁",
+      eyebrow: "适用场景",
       title: "碎片时间听完而非用一整块时间读完",
       description: "不是所有学习场景都需要一整块屏幕和一张桌子，任何时间地点用零散时间把课程听完。",
       cards: [
@@ -262,15 +264,15 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       eyebrow: "产品区别",
       title: "PageAlong 与普通阅读器、音频 App 或剪藏插件有什么区别？",
       description: "PageAlong = 阅读器 + 音频 App + 剪藏插件",
-      columns: ["维度", "阅读器", "音频 App", "剪藏插件", "TTS 插件", "PageAlong"],
+      columns: ["维度", "PageAlong", "其他阅读器", "其他音频 App", "其他剪藏插件", "其他TTS 插件"],
       rows: [
         {
           label: "能不能听",
           cells: [
-            { value: "×" },
             { value: "√" },
             { value: "×" },
             { value: "√" },
+            { value: "×" },
             { value: "√" }
           ]
         },
@@ -278,8 +280,8 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
           label: "内容能否来源于网页或自己的文档",
           cells: [
             { value: "√" },
-            { value: "×" },
             { value: "√" },
+            { value: "×" },
             { value: "√" },
             { value: "√" }
           ]
@@ -287,38 +289,38 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
         {
           label: "音频能否下载",
           cells: [
+            { value: "√" },
             { value: "×" },
             { value: "×", note: "可能需付费" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         },
         {
           label: "能否转为 PDF / Word / Markdown 格式",
           cells: [
+            { value: "√" },
             { value: "×", note: "可能需付费" },
             { value: "×" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         },
         {
           label: "知识管理能力",
           cells: [
             { value: "√" },
+            { value: "√" },
             { value: "×" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         }
       ]
     },
     previewSection: {
       eyebrow: "产品展示",
-      title: "这不是概念页，界面里已经有能认出来的产品形态",
+      title: "",
       description: "课程库、播放页和下载区分开呈现，但都围绕同一条内容变声轨展开。",
       preview: {
         badge: "真实界面",
@@ -463,7 +465,7 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       footnote: "The content-to-audio trail connects saved fragments with the course currently playing."
     },
     fitSection: {
-      eyebrow: "Who it fits",
+      eyebrow: "When it fits",
       title: "Listening through small pockets of time instead of reading in one long block",
       description: "Not every learning session needs a desk, a full screen, and uninterrupted time. Any time and place can be used to finish the course in small pockets of time.",
       cards: [
@@ -505,15 +507,15 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
       eyebrow: "What is different",
       title: "How is PageAlong different from a reader, an audio app, or a clipping tool?",
       description: "PageAlong = Reader + Audio app + Clipping tool",
-      columns: ["Dimension", "Reader", "Audio app", "Clipping tool", "TTS plugin", "PageAlong"],
+      columns: ["Dimension", "PageAlong", "Reader", "Audio app", "Clipping tool", "TTS plugin"],
       rows: [
         {
           label: "Can you listen to it?",
           cells: [
-            { value: "×" },
             { value: "√" },
             { value: "×" },
             { value: "√" },
+            { value: "×" },
             { value: "√" }
           ]
         },
@@ -521,8 +523,8 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
           label: "Can the content come from a web page or your own docs?",
           cells: [
             { value: "√" },
-            { value: "×" },
             { value: "√" },
+            { value: "×" },
             { value: "√" },
             { value: "√" }
           ]
@@ -530,38 +532,38 @@ const homeCopies: Record<HomeLocale, HomeCopy> = {
         {
           label: "Can the audio be downloaded?",
           cells: [
+            { value: "√" },
             { value: "×" },
             { value: "×", note: "May require payment" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         },
         {
           label: "Can it be exported to PDF / Word / Markdown?",
           cells: [
+            { value: "√" },
             { value: "×", note: "May require payment" },
             { value: "×" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         },
         {
           label: "Does it support knowledge management?",
           cells: [
             { value: "√" },
+            { value: "√" },
             { value: "×" },
             { value: "×" },
-            { value: "×" },
-            { value: "√" }
+            { value: "×" }
           ]
         }
       ]
     },
     previewSection: {
       eyebrow: "Product preview",
-      title: "This is not a concept page; the product shape is already visible",
+      title: "",
       description: "The library, player, and download area are separate surfaces, all centered on one content-to-audio trail.",
       preview: {
         badge: "Real UI",

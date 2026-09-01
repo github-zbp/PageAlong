@@ -29,6 +29,14 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+export function PlayIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M8 5.5v13l10-6.5-10-6.5Z" fill="currentColor" />
+    </BaseIcon>
+  );
+}
+
 export function EllipsisVerticalIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>
@@ -274,6 +282,16 @@ export function SeriesIcon(props: IconProps) {
       <rect x="5" y="5" width="14" height="3.6" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
       <rect x="5" y="10.2" width="14" height="3.6" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
       <rect x="5" y="15.4" width="10.2" height="3.6" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    </BaseIcon>
+  );
+}
+
+export function OutlineIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path d="M5 6.5h3.2M11 6.5h8" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+      <path d="M7 12h2.4M12 12h7" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
+      <path d="M9 17.5h2.2M14 17.5h5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.7" />
     </BaseIcon>
   );
 }

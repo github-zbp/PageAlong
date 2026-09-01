@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
@@ -11,12 +13,17 @@ from app.schemas.auth import (
     AuthResponse,
     ChangePasswordRequest,
     EmailCodeRequest,
+    EmailCodeLoginRequest,
     LoginRequest,
+    LoginCapabilitiesRead,
+    OneTapExchangeRequest,
     PasswordResetCodeRequest,
     PasswordResetConfirmRequest,
     RegisterRequest,
+    WechatExchangeRequest,
     UserRead,
 )
+from app.schemas.admin import DashboardActivityUpdate
 from app.schemas.preferences import ThemePreferencesRead, ThemePreferencesUpdate
 from app.services.auth_service import AuthError, AuthService
 from app.services.user_preferences_service import get_or_create_user_preferences, update_user_preferences
@@ -37,6 +44,8 @@ def serialize_user(user: User) -> UserRead:
         email_verified_at=user.email_verified_at,
         must_change_password_at_next_login=user.must_change_password_at_next_login,
         last_login_at=user.last_login_at,
+        last_dashboard_at=user.last_dashboard_at,
+        last_dashboard_locale=user.last_dashboard_locale,
         created_at=user.created_at,
     )
 
@@ -91,6 +100,11 @@ def clear_session_cookie(response: Response) -> None:
     )
 
 
+@router.get("/capabilities", response_model=LoginCapabilitiesRead)
+def capabilities(request: Request) -> LoginCapabilitiesRead:
+    return get_auth_service().login_capabilities(client_ip(request))
+
+
 @router.post("/email/code", status_code=status.HTTP_204_NO_CONTENT)
 def request_email_code(payload: EmailCodeRequest, db: Session = Depends(get_db)) -> Response:
     try:
@@ -98,6 +112,27 @@ def request_email_code(payload: EmailCodeRequest, db: Session = Depends(get_db))
     except AuthError as exc:
         raise_http_auth_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/email/login", response_model=AuthResponse)
+def login_with_email_code(
+    payload: EmailCodeLoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    try:
+        result = get_auth_service().login_with_email_code(
+            db,
+            email=payload.email,
+            code=payload.code,
+            user_agent=user_agent(request),
+            ip_address=client_ip(request),
+        )
+    except AuthError as exc:
+        raise_http_auth_error(exc)
+    set_session_cookie(response, result.token)
+    return auth_response(result)
 
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
@@ -138,9 +173,63 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
     return auth_response(result)
 
 
+@router.post("/wechat/exchange", response_model=AuthResponse)
+def exchange_wechat_identity(
+    payload: WechatExchangeRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    try:
+        result = get_auth_service().exchange_wechat_identity(
+            db,
+            code=payload.code,
+            state=payload.state,
+            user_agent=user_agent(request),
+            ip_address=client_ip(request),
+        )
+    except AuthError as exc:
+        raise_http_auth_error(exc)
+    set_session_cookie(response, result.token)
+    return auth_response(result)
+
+
+@router.post("/one-tap/exchange", response_model=AuthResponse)
+def exchange_one_tap_identity(
+    payload: OneTapExchangeRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+) -> AuthResponse:
+    try:
+        result = get_auth_service().exchange_one_tap_identity(
+            db,
+            credential=payload.credential,
+            provider=payload.provider,
+            user_agent=user_agent(request),
+            ip_address=client_ip(request),
+        )
+    except AuthError as exc:
+        raise_http_auth_error(exc)
+    set_session_cookie(response, result.token)
+    return auth_response(result)
+
+
 @router.get("/me", response_model=UserRead)
 def me(current_user: User = Depends(get_current_user)) -> UserRead:
     return serialize_user(current_user)
+
+
+@router.post("/me/dashboard-activity", status_code=status.HTTP_204_NO_CONTENT)
+def record_dashboard_activity(
+    payload: DashboardActivityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Response:
+    current_user.last_dashboard_at = datetime.utcnow()
+    current_user.last_dashboard_locale = payload.locale
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me/preferences", response_model=ThemePreferencesRead)
@@ -169,7 +258,8 @@ def update_me_preferences(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 def logout(current_session: CurrentSession = Depends(get_current_session), db: Session = Depends(get_db)) -> Response:
-    get_auth_service().logout(db, current_session.session)
+    if current_session.session is not None:
+        get_auth_service().logout(db, current_session.session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     clear_session_cookie(response)
     return response

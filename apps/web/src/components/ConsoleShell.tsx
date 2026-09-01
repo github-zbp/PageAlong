@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { clearAuthToken, getCurrentThemePreferences, getCurrentUser, hasAuthToken, logoutCurrentSession } from "@/lib/api";
@@ -9,6 +9,8 @@ import { readConsoleShellPreferences, updateConsoleShellPreferences } from "@/li
 import type { AuthUser } from "@/lib/types";
 import { writeThemePreferences } from "@/lib/theme-preferences";
 import { FeedbackPanel } from "./FeedbackPanel";
+import { ImpersonationBanner } from "./ImpersonationBanner";
+import { CourseSearchBox } from "./CourseSearchBox";
 import {
   ArrowRightIcon,
   ClipboardIcon,
@@ -135,27 +137,26 @@ function SidebarAction({
 }
 
 export function ConsoleShell({
+  children,
   locale,
-  children
+  sidebarOverride,
+  sidebarOverrideLabel = "Primary"
 }: {
   locale: Locale;
   children: ReactNode;
+  sidebarOverride?: ReactNode;
+  sidebarOverrideLabel?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const dictionary = dictionaries[locale];
   const alternatePath = getAlternatePath(pathname, locale);
-  const [searchValue, setSearchValue] = useState(searchParams.get("query") ?? "");
   const [isMobileNavOpen, setMobileNavOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(() => readConsoleShellPreferences().sidebarCollapsed);
   const [isFeedbackOpen, setFeedbackOpen] = useState(false);
-
-  useEffect(() => {
-    setSearchValue(searchParams.get("query") ?? "");
-  }, [searchParams]);
 
   useEffect(() => {
     updateConsoleShellPreferences({ sidebarCollapsed: isSidebarCollapsed });
@@ -216,14 +217,6 @@ export function ConsoleShell({
     };
   }, [currentUser]);
 
-  function submitSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const query = searchValue.trim();
-    const nextPath = query ? `/${locale}/library?query=${encodeURIComponent(query)}` : `/${locale}/library`;
-    router.push(nextPath);
-    setMobileNavOpen(false);
-  }
-
   function isActive(href: string, activePaths?: readonly string[]) {
     const paths = activePaths ?? [href];
     return paths.some((path) => {
@@ -253,6 +246,7 @@ export function ConsoleShell({
 
   return (
     <div className="min-h-screen bg-[var(--pa-bg)] text-[var(--pa-ink)]">
+      <ImpersonationBanner />
       <header className="flex items-center justify-between gap-3 border-b border-[var(--pa-line)] bg-[var(--pa-surface)] px-4 py-3 md:hidden">
         <Link href={`/${locale}/dashboard`} className="min-w-0">
           <p className="truncate text-base font-semibold">{dictionary.brand}</p>
@@ -293,16 +287,13 @@ export function ConsoleShell({
                 ×
               </button>
             </div>
-            <form className="border-b border-[var(--pa-line)] p-4" role="search" onSubmit={submitSearch}>
-              <input
-                aria-label={dictionary.search.placeholder}
-                className="h-10 w-full rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 text-sm outline-none transition placeholder:text-[var(--pa-muted)] focus:border-[var(--pa-green)]"
-                onChange={(event) => setSearchValue(event.target.value)}
-                placeholder={dictionary.search.placeholder}
-                type="search"
-                value={searchValue}
+            <div className="border-b border-[var(--pa-line)] p-4">
+              <CourseSearchBox
+                initialValue={searchParams.get("query") ?? ""}
+                locale={locale}
+                onNavigate={() => setMobileNavOpen(false)}
               />
-            </form>
+            </div>
             <nav className="flex flex-1 flex-col gap-5 overflow-auto p-4" aria-label="Primary">
               <Link
                 href={`/${locale}/dashboard`}
@@ -394,14 +385,22 @@ export function ConsoleShell({
       ) : null}
 
       <div className="flex min-h-screen w-full flex-col md:flex-row">
-        <aside
-          aria-label="Primary"
-          data-collapsed={isSidebarCollapsed}
-          className={[
-            "relative hidden min-h-screen border-b border-[var(--pa-line)] bg-[var(--pa-muted-surface)] md:flex md:flex-col md:border-b-0 md:border-r md:transition-[width] md:duration-200",
-            isSidebarCollapsed ? "md:w-20" : "md:w-72"
-          ].join(" ")}
-        >
+        {sidebarOverride ? (
+          <aside
+            aria-label={sidebarOverrideLabel}
+            className="hidden min-h-screen border-r border-[var(--pa-line)] bg-[var(--pa-muted-surface)] md:block md:w-72"
+          >
+            {sidebarOverride}
+          </aside>
+        ) : (
+          <aside
+            aria-label="Primary"
+            data-collapsed={isSidebarCollapsed}
+            className={[
+              "relative hidden min-h-screen border-b border-[var(--pa-line)] bg-[var(--pa-muted-surface)] md:flex md:flex-col md:border-b-0 md:border-r md:transition-[width] md:duration-200",
+              isSidebarCollapsed ? "md:w-20" : "md:w-72"
+            ].join(" ")}
+          >
           <button
             aria-label={isSidebarCollapsed ? dictionary.shell.expandSidebar : dictionary.shell.collapseSidebar}
             className="pa-focus absolute right-0 top-6 inline-flex h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-ink)] shadow-sm"
@@ -430,16 +429,9 @@ export function ConsoleShell({
             </Link>
 
             {!isSidebarCollapsed ? (
-              <form className="mt-5" role="search" onSubmit={submitSearch}>
-                <input
-                  aria-label={dictionary.search.placeholder}
-                  className="h-10 w-full rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] px-3 text-sm outline-none transition placeholder:text-[var(--pa-muted)] focus:border-[var(--pa-green)]"
-                  onChange={(event) => setSearchValue(event.target.value)}
-                  placeholder={dictionary.search.placeholder}
-                  type="search"
-                  value={searchValue}
-                />
-              </form>
+              <div className="mt-5">
+                <CourseSearchBox initialValue={searchParams.get("query") ?? ""} locale={locale} />
+              </div>
             ) : null}
 
             <nav className={isSidebarCollapsed ? "mt-5 flex flex-1 flex-col items-center gap-2" : "mt-5 flex flex-col gap-5"} aria-label="Primary">
@@ -625,7 +617,8 @@ export function ConsoleShell({
               </div>
             )}
           </div>
-        </aside>
+          </aside>
+        )}
         <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-7">{children}</main>
       </div>
       <FeedbackPanel

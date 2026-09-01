@@ -51,6 +51,7 @@ function SeriesCourseReadingContent({
   const [error, setError] = useState("");
   const [isLoading, setLoading] = useState(true);
   const [isFullscreenMode, setFullscreenMode] = useState(false);
+  const [isOutlineOpen, setOutlineOpen] = useState(false);
 
   const loadSeries = useCallback(async (resetState = false) => {
     if (resetState) {
@@ -87,6 +88,10 @@ function SeriesCourseReadingContent({
     void loadSeries(true);
   }, [loadSeries]);
 
+  useEffect(() => {
+    setOutlineOpen(false);
+  }, [activeCourse?.id]);
+
   const onBack = useCallback(() => {
     router.push(seriesCoursesHref(locale, seriesId));
   }, [locale, router, seriesId]);
@@ -111,6 +116,10 @@ function SeriesCourseReadingContent({
             courses: current.courses.map((course) => (course.id === nextCourse.id ? nextCourse : course))
           }
     );
+  }, []);
+
+  const scrollToOutlineItem = useCallback((itemId: string) => {
+    document.getElementById(itemId)?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, []);
 
   if (isLoading) {
@@ -143,17 +152,23 @@ function SeriesCourseReadingContent({
       activeCourse={activeCourse}
       courses={series.courses}
       isFullscreenMode={isFullscreenMode}
+      isOutlineOpen={isOutlineOpen}
       locale={locale}
+      outline={activeCourse.outline ?? []}
       title={series.title}
       onBack={onBack}
+      onCloseOutline={() => setOutlineOpen(false)}
       onSelectCourse={onSelectCourse}
+      onSelectOutlineItem={scrollToOutlineItem}
     >
       <CourseDetailContent
         course={activeCourse}
         isFullscreen={isFullscreenMode}
+        isOutlineOpen={isOutlineOpen}
         locale={locale}
         onCourseChange={onCourseChange}
         onReloadCourse={() => void loadSeries()}
+        onToggleOutline={() => setOutlineOpen((value) => !value)}
         onToggleFullscreen={() => setFullscreenMode((value) => !value)}
       />
     </CourseReadingWorkspace>

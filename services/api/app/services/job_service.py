@@ -336,16 +336,13 @@ def run_course_export_job(db: Session, job: GenerationJob) -> dict[str, str]:
 
 
 def resource_download_url(
-    _db: Session,
+    db: Session,
     _job: GenerationJob | None,
-    _resource: FileResource,
+    resource: FileResource,
     *,
     fallback_path: str,
 ) -> str:
-    # Download actions should go through the app route so the response can
-    # attach the right Content-Disposition header instead of opening the raw
-    # object-storage URL in the browser.
-    return fallback_path
+    return FileResourceService(db).resource_download_url(resource, fallback_path=fallback_path)
 
 
 def job_download_fallback_path(job: GenerationJob) -> str | None:

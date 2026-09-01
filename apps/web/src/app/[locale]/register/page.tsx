@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { AuthPageShell } from "@/components/AuthPageShell";
+import { AuthConsentRow } from "@/components/AuthConsentRow";
 import { registerWithEmail, requestEmailCode } from "@/lib/api";
 import { dictionaries, homepageHref, normalizeLocale, type Locale } from "@/lib/i18n";
 import { importTextHref, marketingFooterLinks, marketingFooterNote, marketingNavLinks } from "@/lib/site";
@@ -41,9 +42,11 @@ export default function RegisterPage({ params }: { params: { locale: string } })
     zh: authLocaleHref("register", locale, "zh", explicitNextPath),
     en: authLocaleHref("register", locale, "en", explicitNextPath)
   } satisfies Record<Locale, string>;
+  const footerLinks = marketingFooterLinks(locale);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [consented, setConsented] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,9 +65,13 @@ export default function RegisterPage({ params }: { params: { locale: string } })
   async function sendCode() {
     setError("");
     setMessage("");
+    if (!consented) {
+      setError(dictionary.auth.consentRequired);
+      return;
+    }
     try {
       await requestEmailCode({ email, purpose: "register" });
-      setMessage(dictionary.auth.verificationCode);
+      setMessage(dictionary.auth.codeSentNotice);
       setCodeCooldown(60);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : locale === "zh" ? "发送验证码失败" : "Failed to send code");
@@ -74,6 +81,11 @@ export default function RegisterPage({ params }: { params: { locale: string } })
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setMessage("");
+    if (!consented) {
+      setError(dictionary.auth.consentRequired);
+      return;
+    }
     setLoading(true);
     try {
       await registerWithEmail({ email, password, code });
@@ -94,7 +106,7 @@ export default function RegisterPage({ params }: { params: { locale: string } })
       navLinks={marketingNavLinks(locale)}
       localeLinks={localeLinks}
       primaryCta={{ href: importTextHref(locale), label: locale === "zh" ? "免费使用" : "Use for free" }}
-      footerLinks={marketingFooterLinks(locale)}
+      footerLinks={footerLinks}
       footerNote={marketingFooterNote[locale]}
       backHref={homepageHref(locale)}
       backLabel={dictionary.auth.backToHome}
@@ -139,6 +151,7 @@ export default function RegisterPage({ params }: { params: { locale: string } })
               value={code}
             />
           </label>
+          <AuthConsentRow checked={consented} label={dictionary.auth.consentLabel} links={footerLinks} onChange={setConsented} />
           {message ? <p className="text-sm text-[var(--pa-green)]">{message}</p> : null}
           {error ? <p className="text-sm text-[var(--pa-error)]">{error}</p> : null}
           <button

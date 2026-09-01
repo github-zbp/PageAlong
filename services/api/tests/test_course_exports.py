@@ -1,4 +1,5 @@
 from io import BytesIO
+from urllib.parse import parse_qs, urlparse
 
 from PIL import Image
 from docx.document import Document as DocxDocument
@@ -141,7 +142,11 @@ def test_course_download_request_returns_ready_link_for_existing_resource(client
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready"
-    assert body["download_url"] == f"/courses/{course.id}/exports/markdown"
+    parsed = urlparse(body["download_url"])
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == resource.object_path
+    query = parse_qs(parsed.query)
+    assert query["response-content-disposition"][0].startswith("attachment;")
+    assert query["response-content-type"][0] == resource.content_type
     assert body["resource_id"] == resource.id
     assert body["job_id"] is None
 
@@ -178,7 +183,11 @@ def test_course_audio_download_request_returns_ready_link_when_resource_exists(c
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ready"
-    assert body["download_url"] == f"/courses/{course.id}/audio-download"
+    parsed = urlparse(body["download_url"])
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == resource.object_path
+    query = parse_qs(parsed.query)
+    assert query["response-content-disposition"][0].startswith("attachment;")
+    assert query["response-content-type"][0] == resource.content_type
     assert body["resource_id"] == resource.id
     assert body["job_id"] is None
 

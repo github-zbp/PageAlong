@@ -174,6 +174,26 @@ find_project_worker_pids() {
   done < <(pgrep -f "[c]elery -A app.celery_app worker" 2>/dev/null || true)
 }
 
+find_project_api_pids() {
+  local api_root
+  local pid
+  local cwd
+
+  api_root="$(canonical_dir "${PROJECT_ROOT}/services/api")" || return
+
+  if ! command -v pgrep >/dev/null 2>&1; then
+    return
+  fi
+
+  while IFS= read -r pid; do
+    [[ "${pid}" =~ ^[0-9]+$ ]] || continue
+    cwd="$(process_cwd "${pid}")" || continue
+    if [[ "${cwd}" == "${api_root}" || "${cwd}" == "${api_root}/"* ]]; then
+      printf '%s\n' "${pid}"
+    fi
+  done < <(pgrep -f "[u]vicorn app.main:app" 2>/dev/null || true)
+}
+
 wait_for_pids_exit() {
   local pids=("$@")
   local pid
@@ -242,6 +262,41 @@ stop_project_worker_processes() {
 
   running="$(running_pids_text "${pids[@]}")"
   echo "worker: celery process(es) still running after SIGKILL: ${running}" >&2
+  return 1
+}
+
+stop_project_api_processes() {
+  local pids=()
+  local pid
+  local running
+
+  while IFS= read -r pid; do
+    [[ -n "${pid}" ]] && pids+=("${pid}")
+  done < <(find_project_api_pids)
+
+  if [[ "${#pids[@]}" -eq 0 ]]; then
+    return
+  fi
+
+  echo "api: stopping uvicorn process(es): ${pids[*]}" >&2
+  for pid in "${pids[@]}"; do
+    kill "${pid}" >/dev/null 2>&1 || true
+  done
+
+  if wait_for_pids_exit "${pids[@]}"; then
+    return
+  fi
+
+  for pid in "${pids[@]}"; do
+    kill -9 "${pid}" >/dev/null 2>&1 || true
+  done
+
+  if wait_for_pids_exit "${pids[@]}"; then
+    return
+  fi
+
+  running="$(running_pids_text "${pids[@]}")"
+  echo "api: uvicorn process(es) still running after SIGKILL: ${running}" >&2
   return 1
 }
 
@@ -388,6 +443,8 @@ stop_one() {
     echo "${target}: tmux session ${session} is not running"
     if [[ "${target}" == "worker" ]]; then
       stop_project_worker_processes
+    elif [[ "${target}" == "api" ]]; then
+      stop_project_api_processes
     fi
     return
   fi
@@ -396,6 +453,8 @@ stop_one() {
   tmux kill-session -t "${session}"
   if [[ "${target}" == "worker" ]]; then
     stop_project_worker_processes
+  elif [[ "${target}" == "api" ]]; then
+    stop_project_api_processes
   fi
 }
 

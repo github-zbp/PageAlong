@@ -11,6 +11,10 @@ dist/
 apps/extension/node_modules/
 apps/extension/dist/
 apps/extension/.vite/
+apps/mobile/.expo/
+apps/mobile/.expo-shared/
+apps/mobile/.eas/
+apps/mobile/web-build/
 coverage/
 playwright-report/
 test-results/

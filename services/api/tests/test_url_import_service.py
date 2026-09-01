@@ -70,6 +70,73 @@ def test_url_import_service_persists_markdown_text_sentences_and_waits_for_confi
     )
 
 
+def test_url_import_service_persists_auto_generate_audio_in_job_input(db_session):
+    course, job = UrlImportService(db_session).create_import_course(
+        "user_1",
+        ImportUrlInput(url="https://example.com/a", auto_generate_audio=True),
+    )
+
+    assert course.source_type == SourceType.URL_IMPORT
+    assert json.loads(job.input_json)["auto_generate_audio"] is True
+
+
+def test_url_import_service_processes_a_running_job_that_has_not_started_yet(db_session, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.url_import_service.fetch_public_html",
+        lambda url: type(
+            "Fetch",
+            (),
+            {
+                "original_url": url,
+                "final_url": url,
+                "status_code": 200,
+                "content_type": "text/html",
+                "html": "<html></html>",
+                "elapsed_ms": 1,
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        "app.services.url_import_service.extract_article_content",
+        lambda html, original_url, final_url: type(
+            "Extracted",
+            (),
+            {
+                "title": "网页标题",
+                "extractor": "trafilatura",
+                "normalized": type(
+                    "Normalized",
+                    (),
+                    {
+                        "content_markdown": "# 网页标题\n\n第一句。",
+                        "tts_text": "网页标题\n\n第一句。",
+                        "content_hash": "hash_1",
+                    },
+                )(),
+                "source_metadata": {"source_kind": "url", "locator": original_url, "final_url": final_url},
+                "extraction_metadata": {"extractor": "trafilatura"},
+            },
+        )(),
+    )
+
+    course, job = UrlImportService(db_session).create_import_course(
+        "user_1",
+        ImportUrlInput(url="https://example.com/a"),
+    )
+    job.status = JobStatus.RUNNING
+    db_session.commit()
+
+    result = UrlImportService(db_session).run_import_job(job.id)
+
+    db_session.expire_all()
+    course = db_session.get(Course, course.id)
+    import_job = db_session.get(GenerationJob, job.id)
+
+    assert result.status == "needs_review"
+    assert course.status == CourseStatus.NEEDS_REVIEW
+    assert import_job.status == JobStatus.SUCCEEDED
+
+
 def test_url_import_service_rewrites_article_images_and_records_counts(db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.url_import_service.fetch_public_html",

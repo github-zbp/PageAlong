@@ -1,5 +1,6 @@
 import importlib.util
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 
 def test_s3_compatible_upload_records_metadata_and_public_url(tmp_path):
@@ -123,6 +124,70 @@ def test_s3_compatible_delete_uses_bucket_and_key(tmp_path):
     service.delete_object("audio/course_1/audio_1.wav")
 
     assert captured == {"Bucket": "pagealong-media", "Key": "audio/course_1/audio_1.wav"}
+
+
+def test_s3_compatible_public_download_url_adds_attachment_headers(tmp_path):
+    from app.services.object_storage import ObjectStorageService
+
+    service = ObjectStorageService(
+        backend="r2",
+        bucket="pagealong-media",
+        endpoint_url="https://account.r2.cloudflarestorage.com",
+        access_key_id="access",
+        secret_access_key="secret",
+        public_base_url="https://media.pagealong.com/assets",
+        local_root=tmp_path / "local",
+    )
+
+    url = service.public_download_url(
+        "audio/course_1/audio_1.wav",
+        filename="课程 音频.wav",
+        content_type="audio/wav",
+    )
+    parsed = urlparse(url)
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == "https://media.pagealong.com/assets/audio/course_1/audio_1.wav"
+    query = parse_qs(parsed.query)
+    assert query["response-content-disposition"][0].startswith("attachment;")
+    assert query["response-content-type"][0] == "audio/wav"
+
+
+def test_s3_compatible_presigned_download_url_uses_attachment_headers(tmp_path):
+    from app.services.object_storage import ObjectStorageService
+
+    captured = {}
+
+    class FakeS3Client:
+        def generate_presigned_url(self, client_method, *, Params, ExpiresIn):
+            captured["client_method"] = client_method
+            captured["params"] = Params
+            captured["expires_in"] = ExpiresIn
+            return "https://signed.example/download"
+
+    service = ObjectStorageService(
+        backend="r2",
+        bucket="pagealong-media",
+        endpoint_url="https://account.r2.cloudflarestorage.com",
+        access_key_id="access",
+        secret_access_key="secret",
+        public_base_url="",
+        local_root=tmp_path / "local",
+        client_factory=lambda: FakeS3Client(),
+    )
+
+    url = service.presigned_download_url(
+        object_key="downloads/course.md",
+        filename="course.md",
+        content_type="text/markdown; charset=utf-8",
+        expires_in=60,
+    )
+
+    assert url == "https://signed.example/download"
+    assert captured["client_method"] == "get_object"
+    assert captured["params"]["Bucket"] == "pagealong-media"
+    assert captured["params"]["Key"] == "downloads/course.md"
+    assert captured["params"]["ResponseContentDisposition"].startswith("attachment;")
+    assert captured["params"]["ResponseContentType"] == "text/markdown; charset=utf-8"
+    assert captured["expires_in"] == 60
 
 
 def test_local_delete_removes_file(tmp_path):

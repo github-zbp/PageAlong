@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import AuthEvent, AuthEventType, AuthSession, User, UserRole, UserStatus
+from app.schemas.auth import LoginCapabilitiesRead
 from app.services.auth_security import (
     generate_session_token,
     generate_verification_code,
@@ -33,6 +34,11 @@ class AuthError(Exception):
 class EmailAlreadyRegistered(AuthError):
     status_code = 409
     detail = "Email already registered"
+
+
+class EmailNotRegistered(AuthError):
+    status_code = 404
+    detail = "Email not found"
 
 
 class InvalidCredentials(AuthError):
@@ -72,6 +78,14 @@ class WeakPassword(AuthError):
 class EmailCodeDeliveryFailed(AuthError):
     status_code = 503
     detail = "Email delivery is temporarily unavailable"
+
+
+class ProviderAuthUnavailable(AuthError):
+    status_code = 503
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
 
 
 class AdminGuardError(AuthError):
@@ -204,6 +218,73 @@ class AuthService:
             email=normalized_email,
         )
         db.commit()
+
+    def login_capabilities(self, request_ip: str) -> LoginCapabilitiesRead:
+        return LoginCapabilitiesRead(
+            email_password=True,
+            email_code=True,
+            wechat=settings.auth_wechat_enabled,
+            one_tap=settings.auth_one_tap_enabled,
+        )
+
+    def login_with_email_code(
+        self,
+        db: Session,
+        *,
+        email: str,
+        code: str,
+        user_agent: str,
+        ip_address: str,
+    ) -> AuthResult:
+        normalized_email = validate_email(email)
+        user = self._get_user_by_email(db, normalized_email)
+        if user is None:
+            self._record_event(
+                db,
+                event_type=AuthEventType.LOGIN_FAILED,
+                email=normalized_email,
+                user_agent=user_agent,
+                ip_address=ip_address,
+            )
+            db.commit()
+            raise EmailNotRegistered()
+        if user.status == UserStatus.DISABLED:
+            raise AccountDisabled()
+        self._verify_code(purpose="login", email=normalized_email, code=code)
+        user.last_login_at = datetime.utcnow()
+        result = self.create_session(db, user=user, user_agent=user_agent, ip_address=ip_address)
+        self._record_event(
+            db,
+            event_type=AuthEventType.LOGIN_SUCCEEDED,
+            user_id=user.id,
+            email=user.email,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+        db.commit()
+        return result
+
+    def exchange_wechat_identity(
+        self,
+        db: Session,
+        *,
+        code: str,
+        state: str | None = None,
+        user_agent: str,
+        ip_address: str,
+    ) -> AuthResult:
+        raise ProviderAuthUnavailable("WeChat login is not configured")
+
+    def exchange_one_tap_identity(
+        self,
+        db: Session,
+        *,
+        credential: str,
+        provider: str | None = None,
+        user_agent: str,
+        ip_address: str,
+    ) -> AuthResult:
+        raise ProviderAuthUnavailable("One-tap login is not configured")
 
     def register(
         self,

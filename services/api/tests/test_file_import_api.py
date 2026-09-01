@@ -1,9 +1,14 @@
-from app.models.file_import import (
-    FileImportBatch,
-    FileImportItem,
-    FileImportItemStatus,
-    FileImportSourceMode,
-)
+from app.models.file_import import FileImportBatch, FileImportBatchStatus, FileImportItem, FileImportItemStatus, FileImportSourceMode
+
+
+def test_lists_current_user_file_import_batches(client):
+    response = client.get("/courses/file-import-batches")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["items"] == []
+    assert body["pagination"]["page"] == 1
+    assert body["pagination"]["total"] == 0
 
 
 def test_import_files_returns_batch_with_per_file_failures(client, db_session, monkeypatch):
@@ -104,3 +109,46 @@ def test_get_file_import_batch_returns_user_owned_batch(client, db_session):
     assert body["id"] == batch.id
     assert body["items"][0]["original_filename"] == "book.azw3"
     assert body["items"][0]["error_message"] == "AZW3 import is not supported yet."
+
+
+def test_retries_failed_file_import_batch(client, db_session, monkeypatch, tmp_path):
+    from app.api.routes import courses
+
+    enqueued: list[str] = []
+    monkeypatch.setattr(courses, "enqueue_file_import", lambda item_id: enqueued.append(item_id) or "task_1")
+
+    batch = FileImportBatch(
+        user_id="test_user",
+        source_mode=FileImportSourceMode.SINGLE_FILE,
+        status=FileImportBatchStatus.FAILED,
+        total_count=1,
+        failed_count=1,
+    )
+    db_session.add(batch)
+    db_session.flush()
+    item = FileImportItem(
+        batch_id=batch.id,
+        user_id="test_user",
+        status=FileImportItemStatus.FAILED,
+        original_filename="book.md",
+        relative_path="book.md",
+        file_extension="md",
+        content_type="text/markdown",
+        byte_size=8,
+        storage_backend="local",
+        object_key="book.md",
+        object_path=str(tmp_path / "book.md"),
+        error_code="queue_unavailable",
+        error_message="queue unavailable",
+    )
+    db_session.add(item)
+    db_session.commit()
+
+    response = client.post(f"/courses/file-import-batches/{batch.id}/retry")
+
+    assert response.status_code == 202
+    assert enqueued == [item.id]
+    body = response.json()
+    assert body["status"] in {"pending", "running"}
+    assert body["failed_count"] == 0
+    assert body["items"][0]["status"] == "pending"

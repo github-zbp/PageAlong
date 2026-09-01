@@ -6,10 +6,15 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 TMP_DIR="$(mktemp -d)"
 SERVER_PID=""
+API_PROCESS_PID=""
 cleanup() {
   if [[ -n "${SERVER_PID}" ]]; then
     kill "${SERVER_PID}" >/dev/null 2>&1 || true
     wait "${SERVER_PID}" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${API_PROCESS_PID}" ]]; then
+    kill "${API_PROCESS_PID}" >/dev/null 2>&1 || true
+    wait "${API_PROCESS_PID}" >/dev/null 2>&1 || true
   fi
   rm -rf "${TMP_DIR}"
 }
@@ -137,8 +142,24 @@ if [[ "$*" == *"app.celery_app worker"* ]]; then
     printf '%s\n' "${pid}"
   done
 fi
+
+if [[ "$*" == *"app.main:app"* ]]; then
+  for pid in ${PGREP_API_PIDS:-}; do
+    printf '%s\n' "${pid}"
+  done
+fi
 EOF
 chmod +x "${TMP_DIR}/bin/pgrep"
+
+mkdir -p "${TMP_DIR}/bin-no-lsof"
+cp "${TMP_DIR}/bin/tmux" "${TMP_DIR}/bin-no-lsof/tmux"
+cp "${TMP_DIR}/bin/pgrep" "${TMP_DIR}/bin-no-lsof/pgrep"
+chmod +x "${TMP_DIR}/bin-no-lsof/tmux" "${TMP_DIR}/bin-no-lsof/pgrep"
+cat >"${TMP_DIR}/bin-no-lsof/lsof" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "${TMP_DIR}/bin-no-lsof/lsof"
 
 output="$(
   PATH="${TMP_DIR}/bin:${PATH}" \
@@ -271,6 +292,81 @@ wait_for_pid_exit "${SERVER_PID}"
 if ! grep -F "new-session -d -s web_reader_api" "${TMP_DIR}/tmux-calls-restart" >/dev/null; then
   printf "Expected restart to start a new api tmux session.\n\nCalls:\n%s\n" \
     "$(cat "${TMP_DIR}/tmux-calls-restart")" >&2
+  exit 1
+fi
+
+PROC_ROOT="${TMP_DIR}/proc-api"
+API_PROCESS_PID=""
+mkdir -p "${PROC_ROOT}"
+
+orphan_port="$(
+  python3 - <<'PY'
+import socket
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", 0))
+    print(sock.getsockname()[1])
+PY
+)"
+
+python3 - "${orphan_port}" "${TMP_DIR}/api-server-ready" <<'PY' &
+import socket
+import sys
+import time
+from pathlib import Path
+
+port = int(sys.argv[1])
+ready_path = Path(sys.argv[2])
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.bind(("127.0.0.1", port))
+    sock.listen()
+    ready_path.write_text("ready")
+    time.sleep(30)
+PY
+API_PROCESS_PID="$!"
+
+for _ in {1..40}; do
+  if [[ -f "${TMP_DIR}/api-server-ready" ]]; then
+    break
+  fi
+  sleep 0.1
+done
+
+mkdir -p "${PROC_ROOT}/${API_PROCESS_PID}"
+ln -s "${FAKE_ROOT}/services/api" "${PROC_ROOT}/${API_PROCESS_PID}/cwd"
+
+set +e
+orphan_restart_output="$(
+  PATH="${TMP_DIR}/bin-no-lsof:${PATH}" \
+  PROJECT_ROOT="${FAKE_ROOT}" \
+  PROC_ROOT="${PROC_ROOT}" \
+  PGREP_API_PIDS="${API_PROCESS_PID}" \
+  API_HOST=127.0.0.1 \
+  API_PORT="${orphan_port}" \
+  TMUX_CALL_LOG="${TMP_DIR}/tmux-calls-orphan-restart" \
+  "${PROJECT_ROOT}/scripts/prod-apps.sh" restart 2>&1
+)"
+orphan_restart_status="$?"
+set -e
+
+if [[ "${orphan_restart_status}" -ne 0 ]]; then
+  printf "Expected restart to clean up an orphaned API process without lsof.\n\nActual output:\n%s\n" \
+    "${orphan_restart_output}" >&2
+  exit 1
+fi
+
+if ! grep -F "api: stopping uvicorn process(es): ${API_PROCESS_PID}" <<<"${orphan_restart_output}" >/dev/null; then
+  printf "Expected restart output to mention cleaning the orphaned API process.\n\nActual output:\n%s\n" \
+    "${orphan_restart_output}" >&2
+  exit 1
+fi
+
+wait_for_pid_exit "${API_PROCESS_PID}"
+
+if ! grep -F "new-session -d -s web_reader_api" "${TMP_DIR}/tmux-calls-orphan-restart" >/dev/null; then
+  printf "Expected restart to start a new api tmux session after orphan cleanup.\n\nCalls:\n%s\n" \
+    "$(cat "${TMP_DIR}/tmux-calls-orphan-restart")" >&2
   exit 1
 fi
 

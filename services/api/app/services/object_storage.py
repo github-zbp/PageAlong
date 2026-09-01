@@ -4,6 +4,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlunparse
 
 from app.core.config import settings
 
@@ -21,6 +22,20 @@ class StoredObject:
     byte_size: int
     etag: str | None
     checksum_sha256: str
+
+
+def attachment_disposition(filename: str) -> str:
+    fallback = filename.encode("ascii", "ignore").decode("ascii") or "download"
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename)}"
+
+
+def add_download_response_headers(url: str, *, filename: str, content_type: str | None = None) -> str:
+    parsed = urlparse(url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query["response-content-disposition"] = attachment_disposition(filename)
+    if content_type:
+        query["response-content-type"] = content_type
+    return urlunparse(parsed._replace(query=urlencode(query, doseq=True)))
 
 
 class ObjectStorageService:
@@ -129,6 +144,35 @@ class ObjectStorageService:
         response = self._client().get_object(Bucket=self.bucket, Key=normalized_key)
         body = response["Body"]
         return body.read()
+
+    def public_download_url(self, object_key: str, *, filename: str, content_type: str | None = None) -> str:
+        return add_download_response_headers(self.public_url_for_key(object_key), filename=filename, content_type=content_type)
+
+    def presigned_download_url(
+        self,
+        *,
+        bucket: str | None = None,
+        object_key: str,
+        filename: str,
+        content_type: str | None = None,
+        expires_in: int = 900,
+    ) -> str:
+        if self.backend not in S3_COMPATIBLE_BACKENDS:
+            raise ValueError(f"Unsupported object storage backend: {self.backend}")
+
+        params: dict[str, str] = {
+            "Bucket": bucket or self.bucket,
+            "Key": object_key.lstrip("/"),
+            "ResponseContentDisposition": attachment_disposition(filename),
+        }
+        if content_type:
+            params["ResponseContentType"] = content_type
+
+        return self._client().generate_presigned_url(
+            "get_object",
+            Params=params,
+            ExpiresIn=expires_in,
+        )
 
     def delete_object(self, object_key_or_path: str) -> None:
         normalized_key = object_key_or_path.lstrip("/")

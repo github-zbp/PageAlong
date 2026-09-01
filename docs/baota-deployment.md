@@ -218,11 +218,11 @@ services/worker/.venv/bin/python --version
 
 都应该显示 Python 3.12。
 
-如果 npm 仍访问 `npm.xiaoman.cn` 并超时，替换 lockfile 中的旧下载地址：
+如果 npm 没有走镜像源，先确认 registry 配置：
 
 ```bash
-sed -i 's#https://npm.xiaoman.cn/#https://registry.npmmirror.com/#g' apps/web/package-lock.json apps/extension/package-lock.json
-
+npm config get registry
+npm config get replace-registry-host
 make deps PYTHON=python3.12 NPM="npm --registry=https://registry.npmmirror.com"
 ```
 
@@ -545,10 +545,11 @@ location /api/ {
 npm config get registry
 ```
 
-如果 lockfile 仍写死旧源：
+如果需要刷新 lockfile，先把 registry 设为镜像源：
 
 ```bash
-sed -i 's#https://npm.xiaoman.cn/#https://registry.npmmirror.com/#g' apps/web/package-lock.json apps/extension/package-lock.json
+npm config set registry https://registry.npmmirror.com
+npm config set replace-registry-host always
 ```
 
 ### pip 找不到 `edge-tts`

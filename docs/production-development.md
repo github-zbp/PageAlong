@@ -187,5 +187,39 @@ scripts/prod-apps.sh attach web
 cd /www/web_reader && scripts/prod-apps.sh build-web
 cd /www/web_reader && scripts/prod-apps.sh restart
 
-`build-web` 会先停掉正在运行的 Web 会话，并保留上一版的静态 chunk，避免构建期间或旧页面缓存继续请求时出现 `/_next/static/chunks/*` 404。
-`build-web` 现在会跳过 Next 的内建类型和 lint 检查；需要检查时单独运行 `npm run typecheck`。脚本默认给 `next build` 加上 `NODE_OPTIONS=--max-old-space-size=256` 和 `NEXT_BUILD_CPUS=1`，用来降低低内存服务器上的 OOM 风险；如需调整，可在执行前设置 `WEB_BUILD_NODE_OPTIONS` 或 `WEB_BUILD_CPUS`。如果构建输出 `Killed` 或退出码 137，先检查服务器 OOM 记录：`free -h` 和 `dmesg -T | grep -Ei 'killed process|out of memory|oom'`。
+---
+
+## APP端真机测试流程
+
+手机需要安装 Expo go
+
+```
+cd apps/mobile
+source ~/.nvm/nvm.sh
+nvm use 24
+npm run start -- --clear
+
+# 本地调试需要把环境变量加上
+EXPO_PUBLIC_WEB_BASE_URL=https://web-reader.zbpblog.cn EXPO_PUBLIC_API_BASE_URL=https://web-reader.zbpblog.cn/api npm run start -- --clear
+```
+
+## Apk包构建
+配置文件位于：apps/mobile/eas.json
+
+执行如下命令即可构建Apk包
+```
+cd apps/mobile
+eas login
+eas build:configure
+eas build -p android --profile preview
+```
+
+## 脚本
+
+### 设置系统管理员
+
+```bash
+services/api/.venv/bin/python scripts/promote_user_to_admin.py --email user@example.com
+```
+
+也可以按用户 ID 设置：--user-id <user_id>

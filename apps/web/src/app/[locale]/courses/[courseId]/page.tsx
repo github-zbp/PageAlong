@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Space_Grotesk } from "next/font/google";
 import { ConsoleShell } from "@/components/ConsoleShell";
 import { CourseDetailContent } from "@/components/CourseDetailContent";
+import { CourseOutlineDrawer, CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
 import { getCourse } from "@/lib/api";
 import { dictionaries, normalizeLocale } from "@/lib/i18n";
 import type { Course } from "@/lib/types";
@@ -26,6 +27,7 @@ export default function LocalizedCourseDetailPage({
   const autoplay = searchParams.get("autoplay") === "1";
   const [course, setCourse] = useState<Course | null>(null);
   const [error, setError] = useState("");
+  const [isOutlineOpen, setOutlineOpen] = useState(false);
 
   const loadCourse = useCallback(async () => {
     setError("");
@@ -41,6 +43,16 @@ export default function LocalizedCourseDetailPage({
     void loadCourse();
   }, [loadCourse]);
 
+  useEffect(() => {
+    if (!course?.outline?.length) {
+      setOutlineOpen(false);
+    }
+  }, [course?.id, course?.outline?.length]);
+
+  const scrollToOutlineItem = useCallback((itemId: string) => {
+    document.getElementById(itemId)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, []);
+
   if (!course) {
     return (
       <ConsoleShell locale={locale}>
@@ -53,17 +65,43 @@ export default function LocalizedCourseDetailPage({
     );
   }
 
+  const outline = course.outline ?? [];
+  const outlineSidebar =
+    isOutlineOpen && outline.length > 0 ? (
+      <CourseOutlineSidebar
+        closeLabel={dictionary.reading.closeOutline}
+        courseTitle={course.title}
+        onClose={() => setOutlineOpen(false)}
+        onSelect={scrollToOutlineItem}
+        outline={outline}
+        title={dictionary.reading.outline}
+      />
+    ) : undefined;
+
   return (
-    <ConsoleShell locale={locale}>
-      <div className={spaceGrotesk.className}>
-        <CourseDetailContent
-          autoplay={autoplay}
-          course={course}
-          locale={locale}
-          onCourseChange={setCourse}
-          onReloadCourse={loadCourse}
-        />
-      </div>
-    </ConsoleShell>
+    <>
+      <ConsoleShell locale={locale} sidebarOverride={outlineSidebar} sidebarOverrideLabel={dictionary.reading.outline}>
+        <div className={spaceGrotesk.className}>
+          <CourseDetailContent
+            autoplay={autoplay}
+            course={course}
+            isOutlineOpen={isOutlineOpen}
+            locale={locale}
+            onCourseChange={setCourse}
+            onReloadCourse={loadCourse}
+            onToggleOutline={() => setOutlineOpen((value) => !value)}
+          />
+        </div>
+      </ConsoleShell>
+      <CourseOutlineDrawer
+        closeLabel={dictionary.reading.closeOutline}
+        courseTitle={course.title}
+        onClose={() => setOutlineOpen(false)}
+        onSelect={scrollToOutlineItem}
+        open={isOutlineOpen}
+        outline={outline}
+        title={dictionary.reading.outline}
+      />
+    </>
   );
 }

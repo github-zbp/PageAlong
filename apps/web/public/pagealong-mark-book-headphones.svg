@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="PageAlong logo">
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M126 248C126 233 137 222 152 222H248V398C219 391 194 382 173 369C145 351 126 325 126 296V248Z" fill="#fdfcf9" stroke="#1c241e" stroke-width="10"/>
+    <path d="M386 248C386 233 375 222 360 222H264V398C293 391 318 382 339 369C367 351 386 325 386 296V248Z" fill="#fdfcf9" stroke="#1c241e" stroke-width="10"/>
+    <path d="M256 226V402" stroke="#e7dccd" stroke-width="10"/>
+    <path d="M176 282H223" stroke="#e7dccd" stroke-width="8"/>
+    <path d="M289 282H336" stroke="#e7dccd" stroke-width="8"/>
+    <path d="M172 314H220" stroke="#e7dccd" stroke-width="8"/>
+    <path d="M292 314H340" stroke="#e7dccd" stroke-width="8"/>
+    <path d="M244 398H268V430C268 436 263 441 256 441C249 441 244 436 244 430Z" fill="#d59b31"/>
+    <path d="M164 212C164 160 203 122 256 122C309 122 348 160 348 212" stroke="#3e7b5f" stroke-width="22"/>
+    <rect x="132" y="208" width="56" height="48" rx="22" fill="#3e7b5f" stroke="#1c241e" stroke-width="8"/>
+    <rect x="324" y="208" width="56" height="48" rx="22" fill="#3e7b5f" stroke="#1c241e" stroke-width="8"/>
+    <circle cx="160" cy="232" r="12" fill="#fdfcf9" stroke="#1c241e" stroke-width="6"/>
+    <circle cx="352" cy="232" r="12" fill="#fdfcf9" stroke="#1c241e" stroke-width="6"/>
+  </g>
+</svg>

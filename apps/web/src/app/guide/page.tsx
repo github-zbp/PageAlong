@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   title: "指南 - 页相随 PageAlong"
 };
 
+export const dynamic = "force-dynamic";
+
 function normalizeLocale(value: string | string[] | undefined): Locale {
   const rawValue = Array.isArray(value) ? value[0] : value;
   return rawValue === "en" ? "en" : "zh";

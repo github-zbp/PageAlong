@@ -5,6 +5,9 @@ const webBaseURL = `http://127.0.0.1:${webPort}`;
 
 export default defineConfig({
   testDir: "./tests",
+  expect: {
+    timeout: 15_000
+  },
   use: {
     baseURL: webBaseURL,
     trace: "on-first-retry"

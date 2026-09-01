@@ -14,7 +14,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.file_resource import FileResource, ResourceKind, ResourceStatus, ResourceVariant
-from app.services.object_storage import ObjectStorageService, StoredObject, is_s3_compatible_backend
+from app.services.object_storage import (
+    ObjectStorageService,
+    StoredObject,
+    add_download_response_headers,
+    is_s3_compatible_backend,
+)
 
 SAFE_FILENAME_PATTERN = re.compile(r"[^\w\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff.-]+", re.UNICODE)
 
@@ -257,8 +262,26 @@ class FileResourceService:
         *,
         fallback_path: str | None = None,
     ) -> str:
+        filename = (resource.filename or "").strip() or (resource.title or "").strip() or "download"
+        content_type = (resource.content_type or "").strip() or None
+
         if resource.object_path and resource.object_path.lower().startswith(("http://", "https://")):
-            return resource.object_path
+            return add_download_response_headers(resource.object_path, filename=filename, content_type=content_type)
+
+        if is_s3_compatible_backend(resource.storage_backend):
+            storage = ObjectStorageService.from_settings(resource.storage_backend)
+            object_key = resource.object_key or resource.object_path
+            if storage.public_base_url and object_key:
+                return storage.public_download_url(object_key, filename=filename, content_type=content_type)
+            if resource.bucket and object_key:
+                return storage.presigned_download_url(
+                    bucket=resource.bucket,
+                    object_key=object_key,
+                    filename=filename,
+                    content_type=content_type,
+                    expires_in=settings.tts_signed_url_ttl_seconds,
+                )
+
         if fallback_path:
             return fallback_path
         return resource.object_path or ""

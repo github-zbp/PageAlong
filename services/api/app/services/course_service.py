@@ -15,6 +15,7 @@ from app.models.tag import Tag
 from app.services.content_metrics import TextContentMetric, measure_text_content
 from app.services.object_storage import ObjectStorageService, is_s3_compatible_backend
 from app.services.file_resource_service import FileResourceService
+from app.services.markdown_outline import build_markdown_outline, encode_markdown_outline
 from app.services.tts_limits import TTSDailyCourseLimitExceeded, enforce_route_metric_limit
 from app.services.tts_router import ProviderHealth, TTSRouter
 from app.services.content_normalization import derive_tts_text
@@ -28,6 +29,7 @@ from app.services.tag_service import (
 from app.worker_client import enqueue_audio_generation
 
 LOCAL_QUOTA_TIMEZONE = ZoneInfo("Asia/Shanghai")
+SUPPORTED_LIBRARY_SORTS = {"recent", "created_at", "updated_at", "title", "starred"}
 
 
 def normalize_tags(tags: list[str] | None) -> list[str]:
@@ -67,8 +69,6 @@ def course_tags(course: Course) -> list[Tag]:
 
 
 def course_is_starred(course: Course) -> bool:
-    if course.series is not None and not course.series.is_deleted:
-        return course.series.is_starred
     return course.is_starred
 
 
@@ -162,7 +162,7 @@ def create_text_course(
         word_count=measure_text_content(tts_text).count,
         series_id=series.id if series is not None else None,
         tags_json=encode_tags(tags if tag_ids is None else []),
-        is_starred=False if series is not None else bool(is_starred),
+        is_starred=bool(is_starred),
     )
     db.add(course)
     db.flush()
@@ -179,6 +179,7 @@ def create_text_course(
         version=1,
         text=tts_text,
         content_markdown=text,
+        outline_json=encode_markdown_outline(build_markdown_outline(text)),
         confirmed_by_user=True,
     )
     db.add(article_text)
@@ -457,6 +458,7 @@ def persist_article_content(
         version=len(course.article_texts) + 1,
         text=tts_text,
         content_markdown=content_markdown,
+        outline_json=encode_markdown_outline(build_markdown_outline(content_markdown)),
         content_hash=content_hash,
         source_metadata_json=source_metadata_json,
         extraction_metadata_json=extraction_metadata_json,
@@ -493,10 +495,24 @@ def course_sort_value(course: Course) -> datetime:
     return course.last_read_at or course.updated_at or course.created_at
 
 
-def course_matches_query(course: Course, query: str | None) -> bool:
+def sort_courses(courses: list[Course], sort: str = "recent") -> list[Course]:
+    if sort == "created_at":
+        return sorted(courses, key=lambda item: (item.created_at, item.id), reverse=True)
+    if sort == "updated_at":
+        return sorted(courses, key=lambda item: (item.updated_at, item.id), reverse=True)
+    if sort == "title":
+        return sorted(courses, key=lambda item: (item.title.lower(), item.id))
+    if sort == "starred":
+        return sorted(courses, key=lambda item: (course_is_starred(item), course_sort_value(item), item.id), reverse=True)
+    return sorted(courses, key=lambda item: (course_sort_value(item), item.id), reverse=True)
+
+
+def course_matches_query(course: Course, query: str | None, search_scope: str = "title") -> bool:
     normalized_query = (query or "").strip().lower()
     if not normalized_query:
         return True
+    if search_scope == "title":
+        return normalized_query in course.title.lower()
     sentence_text = " ".join(sentence.text for sentence in course.sentences)
     series_title = course.series.title if course.series is not None else ""
     return normalized_query in f"{course.title} {series_title} {sentence_text}".lower()
@@ -514,9 +530,11 @@ def list_courses(
     user_id: str,
     library_type: str | None = None,
     query: str | None = None,
+    search_scope: str = "title",
     tag: str | None = None,
     starred: bool | None = None,
     series_id: str | None = None,
+    sort: str = "recent",
 ) -> list[Course]:
     courses = list(
         db.scalars(
@@ -543,11 +561,11 @@ def list_courses(
             continue
         if not course_matches_tag(course, tag):
             continue
-        if not course_matches_query(course, query):
+        if not course_matches_query(course, query, search_scope):
             continue
         filtered_courses.append(course)
 
-    return sorted(filtered_courses, key=course_sort_value, reverse=True)
+    return sort_courses(filtered_courses, sort)
 
 
 def active_series_courses(series: CourseSeries) -> list[Course]:
@@ -560,6 +578,18 @@ def series_sort_value(series: CourseSeries) -> datetime:
         default=None,
     )
     return series.last_read_at or last_course_read_at or series.updated_at or series.created_at
+
+
+def sort_series(series_items: list[CourseSeries], sort: str = "recent") -> list[CourseSeries]:
+    if sort == "created_at":
+        return sorted(series_items, key=lambda item: (item.created_at, item.id), reverse=True)
+    if sort == "updated_at":
+        return sorted(series_items, key=lambda item: (item.updated_at, item.id), reverse=True)
+    if sort == "title":
+        return sorted(series_items, key=lambda item: (item.title.lower(), item.id))
+    if sort == "starred":
+        return sorted(series_items, key=lambda item: (item.is_starred, series_sort_value(item), item.id), reverse=True)
+    return sorted(series_items, key=lambda item: (series_sort_value(item), item.id), reverse=True)
 
 
 def series_matches_query(series: CourseSeries, query: str | None) -> bool:
@@ -583,6 +613,7 @@ def list_series(
     query: str | None = None,
     tag: str | None = None,
     starred: bool | None = None,
+    sort: str = "recent",
 ) -> list[CourseSeries]:
     series_items = list(
         db.scalars(
@@ -601,7 +632,7 @@ def list_series(
         if not series_matches_query(series, query):
             continue
         filtered_series.append(series)
-    return sorted(filtered_series, key=series_sort_value, reverse=True)
+    return sort_series(filtered_series, sort)
 
 
 def update_course_library(
@@ -622,8 +653,6 @@ def update_course_library(
         if course.series is not None:
             if tag_ids is None and tags is None:
                 tags = normalize_tags(decode_tags(course.tags_json) + decode_tags(course.series.tags_json))
-            if is_starred is None:
-                course.is_starred = course.series.is_starred
         course.series_id = None
         course.series = None
 
@@ -655,9 +684,7 @@ def update_course_library(
     elif course.series is None:
         sync_course_tags(db, course, direct_tag_names=decode_tags(course.tags_json))
 
-    if course.series is not None and is_starred is not None:
-        course.series.is_starred = is_starred
-    elif course.series is None and is_starred is not None:
+    if is_starred is not None:
         course.is_starred = is_starred
 
     db.commit()
@@ -693,7 +720,6 @@ def move_series_to_fragments(db: Session, series: CourseSeries) -> int:
         course.series = None
         course.tags_json = encode_tags(direct_tag_names)
         sync_course_tags(db, course, direct_tag_names=direct_tag_names)
-        course.is_starred = series.is_starred
     series.last_read_course_id = None
     db.commit()
     return len(courses)

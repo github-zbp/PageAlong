@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "vditor/dist/index.css";
 import { ThemeBootstrap } from "@/components/ThemeBootstrap";
 
 export const metadata: Metadata = {

@@ -7,6 +7,10 @@ dependencies = [
   "pydantic-settings>=2.3.4"
 ]
 
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["storage*", "tests*"]
+
 [dependency-groups]
 dev = [
   "pytest>=8.3.2",
@@ -16,4 +20,3 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-

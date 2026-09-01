@@ -1,3 +1,11 @@
+from app.models.admin_content import (
+    AdminImpersonationToken,
+    Announcement,
+    AnnouncementRoadmapStatus,
+    AnnouncementStatus,
+    BlogPost,
+    BlogPostStatus,
+)
 from app.models.course import (
     ArticleImageAsset,
     ArticleText,
@@ -24,11 +32,17 @@ from app.models.tts import TTSSegment, TTSQuotaPeriod, TTSUsageEvent
 from app.models.user import AuthEvent, AuthEventType, AuthSession, User, UserPreference, UserRole, UserStatus
 
 __all__ = [
+    "AdminImpersonationToken",
+    "Announcement",
+    "AnnouncementRoadmapStatus",
+    "AnnouncementStatus",
     "ArticleText",
     "AudioAsset",
     "AuthEvent",
     "AuthEventType",
     "AuthSession",
+    "BlogPost",
+    "BlogPostStatus",
     "Course",
     "CourseSection",
     "CourseSeries",

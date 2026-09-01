@@ -11,9 +11,10 @@ import {
   updateReaderPreferences,
   type ReaderPreferences
 } from "@/lib/reader-preferences";
-import type { Course, Sentence } from "@/lib/types";
+import type { Course, CourseOutlineItem, Sentence } from "@/lib/types";
 import { MarkdownReader } from "./MarkdownReader";
 import { ReaderPreferencesControls } from "./ReaderPreferencesControls";
+import { CloseIcon, PlayIcon } from "./UiIcons";
 
 const playbackRates = [0.75, 1, 1.25, 1.5, 2];
 
@@ -23,12 +24,14 @@ export function CoursePlayer({
   course,
   locale,
   autoplay = false,
+  outline = [],
   showReaderPreferencesSection = true,
   showSourceInfo = true
 }: {
   course: Course;
   locale: Locale;
   autoplay?: boolean;
+  outline?: CourseOutlineItem[];
   showReaderPreferencesSection?: boolean;
   showSourceInfo?: boolean;
 }) {
@@ -44,6 +47,7 @@ export function CoursePlayer({
   const [preferences, setPreferences] = useState<ReaderPreferences>(defaultReaderPreferences);
   const [playbackPhase, setPlaybackPhase] = useState<PlaybackPhase>("idle");
   const [playbackMessage, setPlaybackMessage] = useState("");
+  const [isPlayerCollapsed, setPlayerCollapsed] = useState(false);
   const dictionary = dictionaries[locale];
 
   useEffect(() => {
@@ -61,6 +65,7 @@ export function CoursePlayer({
     setPlaying(false);
     setPlaybackPhase("idle");
     setPlaybackMessage("");
+    setPlayerCollapsed(false);
     lastSavedSecondRef.current = course.last_playback_position_seconds;
     pendingAutoPlayRef.current = false;
     if (audioRef.current != null) {
@@ -73,6 +78,7 @@ export function CoursePlayer({
     course.duration_seconds,
     course.id,
     course.last_playback_position_seconds,
+    course.outline,
     course.sentences,
     course.status
   ]);
@@ -249,6 +255,7 @@ export function CoursePlayer({
 
   const fallbackMarkdown = currentCourse.sentences.map((sentence) => sentence.text).join("\n\n");
   const readerMarkdown = currentCourse.content_markdown || fallbackMarkdown;
+  const readerOutline = currentCourse.outline ?? outline;
   const hasAudio = currentCourse.status === "ready";
   const audioSource = currentCourse.current_audio_url ? mediaUrl(currentCourse.current_audio_url) : courseAudioUrl(currentCourse.id);
   const activeSentence = currentCourse.sentences.find((sentence) => sentence.index === activeSentenceIndex);
@@ -262,7 +269,7 @@ export function CoursePlayer({
 
   return (
     <div
-      className="space-y-5 pb-28 md:pb-32"
+      className={isPlayerCollapsed ? "space-y-5 pb-20" : "space-y-5 pb-28 md:pb-32"}
       data-reader-preferences
       data-font-size={preferences.fontSize}
       data-line-height={preferences.lineHeight}
@@ -305,6 +312,7 @@ export function CoursePlayer({
           sentences={currentCourse.sentences}
           activeSentenceIndex={activeSentenceIndex}
           onSelectSentence={seekToSentence}
+          outline={readerOutline}
           fontSize={preferences.fontSize}
           lineHeight={preferences.lineHeight}
         />
@@ -321,10 +329,43 @@ export function CoursePlayer({
         </div>
       ) : null}
 
-      <section
-        data-course-player="reading-dock"
-        className="sticky bottom-3 z-30 rounded-xl border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3 shadow-[0_14px_40px_rgba(17,17,17,0.14)] backdrop-blur supports-[padding:max(0px)]:mb-[max(0rem,env(safe-area-inset-bottom))]"
-      >
+      {hasAudio ? (
+        <audio
+          ref={audioRef}
+          className="hidden"
+          src={audioSource}
+          onLoadedMetadata={(event) => setDurationSeconds(event.currentTarget.duration || currentCourse.duration_seconds)}
+          onPause={() => setPlaying(false)}
+          onPlay={() => setPlaying(true)}
+          onTimeUpdate={handleTimeUpdate}
+        />
+      ) : null}
+
+      {isPlayerCollapsed ? (
+        <button
+          aria-label={dictionary.player.expand}
+          className="pa-focus fixed bottom-4 right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[var(--pa-green)] text-white shadow-[0_14px_34px_rgba(17,17,17,0.22)] transition hover:-translate-y-0.5 supports-[padding:max(0px)]:bottom-[max(1rem,env(safe-area-inset-bottom))]"
+          data-course-player="mini"
+          onClick={() => setPlayerCollapsed(false)}
+          title={dictionary.player.expand}
+          type="button"
+        >
+          <PlayIcon className="h-6 w-6 translate-x-0.5" />
+        </button>
+      ) : (
+        <section
+          data-course-player="reading-dock"
+          className="sticky bottom-3 z-30 rounded-xl border border-[var(--pa-line)] bg-[var(--pa-surface)] p-3 shadow-[0_14px_40px_rgba(17,17,17,0.14)] backdrop-blur supports-[padding:max(0px)]:mb-[max(0rem,env(safe-area-inset-bottom))]"
+        >
+        <button
+          aria-label={dictionary.player.collapse}
+          className="pa-focus absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-muted)] shadow-sm transition hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]"
+          onClick={() => setPlayerCollapsed(true)}
+          title={dictionary.player.collapse}
+          type="button"
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
         <div className="flex flex-col gap-3">
           {!hasAudio ? (
             <div className="rounded-lg border border-dashed border-[var(--pa-line)] bg-[var(--pa-surface)] p-3">
@@ -339,18 +380,9 @@ export function CoursePlayer({
 
           {hasAudio ? (
             <>
-              <audio
-                ref={audioRef}
-                className="hidden"
-                src={audioSource}
-                onLoadedMetadata={(event) => setDurationSeconds(event.currentTarget.duration || currentCourse.duration_seconds)}
-                onPause={() => setPlaying(false)}
-                onPlay={() => setPlaying(true)}
-                onTimeUpdate={handleTimeUpdate}
-              />
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
+                  <div className="min-w-0 pr-8">
                     <p className="truncate text-sm font-semibold text-[var(--pa-ink)]">{currentCourse.title}</p>
                     <p className="truncate text-xs text-[var(--pa-muted)]">
                       {activeSentence?.text ?? dictionary.player.unavailable}
@@ -439,6 +471,7 @@ export function CoursePlayer({
           )}
         </div>
       </section>
+      )}
     </div>
   );
 }

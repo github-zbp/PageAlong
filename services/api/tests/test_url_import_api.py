@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from app.models.course import ArticleImageAsset, ArticleText, Course, CourseStatus, SourceType
 from app.models.generation_job import GenerationJob, JobStatus, JobType
@@ -24,8 +25,28 @@ def test_create_url_import_course_returns_extracting_course(client, db_session, 
     assert course.source_type == SourceType.URL_IMPORT
     assert course.status == CourseStatus.EXTRACTING_TEXT
     assert job.job_type == JobType.URL_IMPORT
+    assert job.status == JobStatus.PENDING
     assert enqueued["course_id"] == course.id
     assert enqueued["job_id"] == job.id
+
+
+def test_create_url_import_course_can_request_auto_generated_audio(client, db_session, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.courses.enqueue_url_import",
+        lambda course_id, job_id: "celery-import-id",
+    )
+
+    response = client.post(
+        "/courses/import-url",
+        json={"url": "https://example.com/article", "auto_generate_audio": True},
+    )
+
+    assert response.status_code == 201
+    course = db_session.get(Course, response.json()["id"])
+    job = db_session.query(GenerationJob).filter(GenerationJob.course_id == course.id).one()
+    payload = json.loads(job.input_json)
+    assert payload["url"] == "https://example.com/article"
+    assert payload["auto_generate_audio"] is True
 
 
 def test_create_url_import_rejects_empty_url(client):
@@ -79,6 +100,7 @@ def test_create_extension_sync_course_enqueues_auto_import(client, db_session, m
     assert payload["mode"] == "extension_sync"
     assert payload["auto_generate_audio"] is True
     assert payload["images"][0]["alt"] == "配图"
+    assert job.status == JobStatus.PENDING
     assert enqueued["course_id"] == course.id
     assert enqueued["job_id"] == job.id
     assert course.source_type == SourceType.CHROME_EXTENSION
@@ -290,6 +312,7 @@ def test_retry_failed_course_job_restarts_failed_url_import_stage(client, db_ses
     course = db_session.get(Course, created["id"])
     retry_job = db_session.get(GenerationJob, body["id"])
     assert course.status == CourseStatus.EXTRACTING_TEXT
+    assert retry_job.status == JobStatus.PENDING
     assert retry_job.input_json == failed_job.input_json
     assert (
         db_session.query(GenerationJob)

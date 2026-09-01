@@ -10,6 +10,12 @@
 - 文本导入、句子切分、播放进度保存、课程删除。
 - fake TTS 流程骨架，但还没有接入真实 MP3 生成。
 
+## 官网页面渲染约定
+
+- 公开官网页（首页、指南、博客、产品故事、下载、隐私政策、用户条款）必须保留服务端渲染。
+- 即便页面暂时只是占位内容，也要继续用 App Router 的 server component 输出首屏，不要改成纯客户端渲染。
+- 面向 SEO 的正文和导航信息应在服务器端直接生成，避免首屏依赖浏览器端二次拉取。
+
 ## 环境要求
 
 本地需要准备：
@@ -115,6 +121,17 @@ tmux new-session -s web_reader_web 'cd /www/web_reader && API_BASE_URL=http://12
 
 tmux attach-session -t web_reader_web
 ```
+
+## Android app
+
+```bash
+cd apps/mobile
+cp .env.example .env
+npm install
+EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8070 npm run start
+```
+
+Android 模拟器使用 `10.0.2.2` 访问宿主机 API。真机需要改成宿主机局域网 IP，或使用 Expo tunnel。
 
 ## 检查后端是否启动成功
 

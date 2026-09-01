@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from app.schemas.pagination import PaginatedList
+
 
 class FileImportItemRead(BaseModel):
     id: str
@@ -38,3 +40,7 @@ class FileImportBatchRead(BaseModel):
     updated_at: datetime
     finished_at: datetime | None = None
     items: list[FileImportItemRead] = Field(default_factory=list)
+
+
+class FileImportBatchList(PaginatedList[FileImportBatchRead]):
+    pass

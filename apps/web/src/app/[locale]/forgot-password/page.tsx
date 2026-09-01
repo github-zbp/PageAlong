@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { AuthPageShell } from "@/components/AuthPageShell";
 import { confirmPasswordReset, requestPasswordResetCode } from "@/lib/api";
 import { dictionaries, homepageHref, normalizeLocale, type Locale } from "@/lib/i18n";
@@ -20,13 +20,25 @@ export default function ForgotPasswordPage({ params }: { params: { locale: strin
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [codeCooldown, setCodeCooldown] = useState(0);
+
+  useEffect(() => {
+    if (codeCooldown <= 0) {
+      return;
+    }
+    const timer = window.setInterval(() => {
+      setCodeCooldown((value) => Math.max(0, value - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [codeCooldown]);
 
   async function sendCode() {
     setError("");
     setMessage("");
     try {
       await requestPasswordResetCode(email);
-      setMessage(dictionary.auth.verificationCode);
+      setMessage(dictionary.auth.codeSentNotice);
+      setCodeCooldown(60);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : locale === "zh" ? "发送验证码失败" : "Failed to send code");
     }
@@ -84,10 +96,11 @@ export default function ForgotPasswordPage({ params }: { params: { locale: strin
             </label>
             <button
               className="pa-focus mt-7 h-11 rounded-md border border-[var(--pa-line)] px-4 text-sm text-[var(--pa-ink)]"
+              disabled={codeCooldown > 0 || !email}
               onClick={() => void sendCode()}
               type="button"
             >
-              {dictionary.auth.sendCode}
+              {codeCooldown > 0 ? `${dictionary.auth.resendCode} (${codeCooldown})` : dictionary.auth.sendCode}
             </button>
           </div>
           <label className="block space-y-2 text-sm">

@@ -64,8 +64,8 @@ export const marketingComingSoonCopy = {
 } as const;
 
 export const marketingFooterNote = {
-  zh: "PageAlong 仍在迭代中，真实 TTS、文件上传、OCR 和生产认证还未开放。",
-  en: "PageAlong is still in progress; real TTS, file upload, OCR, and production auth are not live yet."
+  zh: "PageAlong 属于你的定制化剪藏课程管理和播客。",
+  en: "PageAlong, your personalized clipping course management and podcast."
 } as const;
 
 export function marketingHref(pathname: string, locale: Locale): string {

@@ -62,6 +62,32 @@ def test_create_text_course_uses_clean_tts_text_for_markdown_input(client, db_se
     assert article_text.content_markdown == "**重点**第一句。第二句包含 *强调*。"
 
 
+def test_create_text_course_returns_precomputed_markdown_outline(client, db_session, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.course_service.enqueue_audio_generation",
+        lambda course_id, job_id: "test-job-id",
+    )
+
+    response = client.post(
+        "/courses",
+        json={
+            "title": "Markdown Outline",
+            "source_type": "manual_text",
+            "text": "# Overview\n\n正文。\n\n## Details\n\n### Step One\n\n##### Hidden",
+        },
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["outline"] == [
+        {"id": "heading-overview", "depth": 1, "title": "Overview"},
+        {"id": "heading-details", "depth": 2, "title": "Details"},
+        {"id": "heading-step-one", "depth": 3, "title": "Step One"},
+    ]
+    article_text = db_session.query(ArticleText).filter(ArticleText.course_id == body["id"]).one()
+    assert "heading-overview" in article_text.outline_json
+
+
 def test_create_text_course_creates_pending_generation_job(client, db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.course_service.enqueue_audio_generation",
@@ -153,6 +179,7 @@ def test_list_courses_returns_summary_without_reader_content(client, monkeypatch
     assert "content_markdown" not in item
     assert "sentences" not in item
     assert "sections" not in item
+    assert "outline" not in item
 
     detail = client.get(f"/courses/{created['id']}").json()
     assert detail["content_markdown"] == "第一句。第二句。"
@@ -229,6 +256,34 @@ def test_get_course_returns_file_source_summary(client, db_session):
     assert response.json()["source"]["source_kind"] == "file"
     assert response.json()["source"]["relative_path"] == "notes/chapter-1.txt"
     assert response.json()["source"]["byte_size"] == 12
+
+
+def test_get_course_derives_outline_for_legacy_article_text_without_stored_outline(client, db_session):
+    course = Course(
+        user_id="test_user",
+        title="旧课程",
+        source_type=SourceType.MANUAL_TEXT,
+        status=CourseStatus.TEXT_READY,
+    )
+    db_session.add(course)
+    db_session.flush()
+    db_session.add(
+        ArticleText(
+            course_id=course.id,
+            version=1,
+            text="旧正文。",
+            content_markdown="# Legacy\n\n## Existing Body\n\n旧正文。",
+        )
+    )
+    db_session.commit()
+
+    response = client.get(f"/courses/{course.id}")
+
+    assert response.status_code == 200
+    assert response.json()["outline"] == [
+        {"id": "heading-legacy", "depth": 1, "title": "Legacy"},
+        {"id": "heading-existing-body", "depth": 2, "title": "Existing Body"},
+    ]
 
 
 def test_free_user_daily_audio_generation_limit_blocks_new_generation_job(client, db_session, monkeypatch):

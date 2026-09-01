@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ConsoleShell } from "@/components/ConsoleShell";
 import { CourseCard } from "@/components/CourseCard";
+import { DashboardAnnouncements } from "@/components/DashboardAnnouncements";
 import { PageHeader } from "@/components/PageHeader";
 import { SummaryCard } from "@/components/SummaryCard";
-import { deleteCourse, listCourses } from "@/lib/api";
+import { deleteCourse, listCourses, recordDashboardActivity } from "@/lib/api";
 import { dictionaries, normalizeLocale } from "@/lib/i18n";
 import type { CourseSummary } from "@/lib/types";
 
@@ -25,8 +26,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   }
 
   useEffect(() => {
+    void recordDashboardActivity(locale).catch(() => undefined);
     void refresh();
-  }, []);
+  }, [locale]);
 
   const textReadyCount = courses.filter((course) => course.status === "text_ready").length;
   const resumableCourses = courses.filter((course) => course.last_playback_position_seconds > 0);
@@ -56,7 +58,9 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         }
       />
 
-      <section className="grid gap-3 sm:grid-cols-3">
+      <DashboardAnnouncements locale={locale} />
+
+      <section className="mt-5 grid gap-3 sm:grid-cols-3">
         <SummaryCard label={dictionary.dashboard.totalCourses} value={courses.length} />
         <SummaryCard label={dictionary.dashboard.textReady} value={textReadyCount} />
         <SummaryCard label={dictionary.dashboard.resumable} value={resumableCourses.length} />
@@ -82,24 +86,6 @@ export default function DashboardPage({ params }: { params: { locale: string } }
         <div className="border-t border-[var(--pa-line)] pt-4 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
           <h2 className="text-base font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.nextTitle}</h2>
           <p className="mt-2 text-sm leading-6 text-[var(--pa-muted)]">{nextStep}</p>
-          <div className="mt-4 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
-            <p className="text-xs font-medium uppercase tracking-normal text-[#8c7e6e]">
-              {dictionary.dashboard.roadmap.eyebrow}
-            </p>
-            <h3 className="mt-2 text-sm font-semibold text-[var(--pa-ink)]">{dictionary.dashboard.roadmap.title}</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--pa-muted)]">{dictionary.dashboard.roadmap.body}</p>
-            <ul className="mt-3 space-y-3">
-              {dictionary.dashboard.roadmap.items.map((item) => (
-                <li key={item.title} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--pa-green)]" />
-                  <div>
-                    <p className="text-sm font-medium text-[var(--pa-ink)]">{item.title}</p>
-                    <p className="mt-1 text-xs leading-5 text-[var(--pa-muted)]">{item.body}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
       </section>
 

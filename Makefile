@@ -43,13 +43,14 @@ endif
 
 export
 
-.PHONY: deps deps-extension deps-kokoro up down init-db api api-prod worker web test-api test-web test-extension build-extension test
+.PHONY: deps deps-extension deps-kokoro up down init-db api api-prod worker web mobile mobile-android test-api test-web test-extension test-mobile build-extension test
 
 deps:
-	cd services/api && $(PYTHON) -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install fastapi 'uvicorn[standard]' sqlalchemy alembic 'psycopg[binary]' pydantic-settings python-multipart 'celery[redis]' boto3 'edge-tts' websockets httpx lxml markdownify pillow python-docx readability-lxml reportlab trafilatura pytest pytest-asyncio ruff
-	cd services/worker && $(PYTHON) -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install 'celery[redis]' pydantic-settings pytest ruff
+	cd services/api && $(PYTHON) -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install -e . pytest pytest-asyncio ruff
+	cd services/worker && $(PYTHON) -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install -e . pytest ruff
 	cd apps/web && $(NPM) install
 	cd apps/extension && $(NPM) install
+	cd apps/mobile && $(NPM) install
 
 deps-extension:
 	cd apps/extension && $(NPM) install
@@ -84,6 +85,12 @@ worker:
 web:
 	cd apps/web && $(NPM) run dev -- --hostname $(WEB_HOST) --port $(WEB_PORT)
 
+mobile:
+	cd apps/mobile && $(NPM) run start
+
+mobile-android:
+	cd apps/mobile && EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:8070 $(NPM) run android
+
 test-api:
 	cd services/api && .venv/bin/python -m pytest -q
 
@@ -93,7 +100,10 @@ test-web:
 test-extension:
 	cd apps/extension && $(NPM) test
 
+test-mobile:
+	cd apps/mobile && $(NPM) test
+
 build-extension:
 	cd apps/extension && $(NPM) run build
 
-test: test-api test-web test-extension
+test: test-api test-web test-extension test-mobile

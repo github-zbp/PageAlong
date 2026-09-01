@@ -42,6 +42,8 @@ class User(Base):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     must_change_password_at_next_login: Mapped[bool] = mapped_column(Boolean, default=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_dashboard_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_dashboard_locale: Mapped[str] = mapped_column(String(16), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -61,6 +63,8 @@ class User(Base):
             self.status = UserStatus.ACTIVE
         if self.must_change_password_at_next_login is None:
             self.must_change_password_at_next_login = False
+        if self.last_dashboard_locale is None:
+            self.last_dashboard_locale = ""
 
 
 class AuthSession(Base):

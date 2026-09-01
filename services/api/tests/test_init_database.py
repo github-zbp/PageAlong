@@ -90,11 +90,14 @@ def test_create_application_tables_registers_current_models():
     init_database.create_application_tables(engine)
 
     assert set(inspect(engine).get_table_names()) == {
+        "admin_impersonation_tokens",
+        "announcements",
         "article_image_assets",
         "article_texts",
         "auth_events",
         "auth_sessions",
         "audio_assets",
+        "blog_posts",
         "course_tags",
         "course_sections",
         "course_series",
@@ -112,6 +115,8 @@ def test_create_application_tables_registers_current_models():
         "user_preferences",
         "users",
     }
+    user_columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    assert {"last_dashboard_at", "last_dashboard_locale"}.issubset(user_columns)
 
 
 def test_create_application_tables_registers_file_import_tables():
@@ -361,6 +366,7 @@ def test_create_application_tables_upgrades_legacy_article_text_columns():
     generation_job_columns = {column["name"] for column in inspect(engine).get_columns("generation_jobs")}
     assert {
         "content_markdown",
+        "outline_json",
         "content_hash",
         "source_metadata_json",
         "extraction_metadata_json",

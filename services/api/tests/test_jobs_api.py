@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 
@@ -82,8 +83,8 @@ def test_jobs_api_lists_resource_jobs_and_job_detail(client, db_session, monkeyp
             ResourceVariant.PDF,
             "ready.pdf",
             "application/pdf",
-            "/tmp/ready.pdf",
-            "/courses/{course_id}/exports/pdf",
+            "https://media.pagealong.test/downloads/ready.pdf",
+            "/courses/{course_id}/resources/{resource_id}/download",
         ),
         (
             JobType.TTS_GENERATE,
@@ -91,8 +92,8 @@ def test_jobs_api_lists_resource_jobs_and_job_detail(client, db_session, monkeyp
             ResourceVariant.AUDIO,
             "ready.mp3",
             "audio/mpeg",
-            "/tmp/ready.mp3",
-            "/courses/{course_id}/audio-download",
+            "https://media.pagealong.test/audio/ready.mp3",
+            "/courses/{course_id}/resources/{resource_id}/download",
         ),
     ],
 )
@@ -137,16 +138,26 @@ def test_jobs_api_serializes_download_url_for_completed_resource_jobs(
     db_session.add(job)
     db_session.commit()
 
-    expected_download_url = expected_path.format(course_id=course.id)
+    expected_download_url = object_path
 
     list_response = client.get("/jobs", params={"scope": "resource"})
     assert list_response.status_code == 200
     assert list_response.json()["items"][0]["id"] == job.id
-    assert list_response.json()["items"][0]["download_url"] == expected_download_url
+    download_url = list_response.json()["items"][0]["download_url"]
+    parsed = urlparse(download_url)
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == expected_download_url
+    query = parse_qs(parsed.query)
+    assert query["response-content-disposition"][0].startswith("attachment;")
+    assert query["response-content-type"][0] == content_type
 
     detail_response = client.get(f"/jobs/{job.id}")
     assert detail_response.status_code == 200
-    assert detail_response.json()["download_url"] == expected_download_url
+    detail_url = detail_response.json()["download_url"]
+    parsed = urlparse(detail_url)
+    assert f"{parsed.scheme}://{parsed.netloc}{parsed.path}" == expected_download_url
+    query = parse_qs(parsed.query)
+    assert query["response-content-disposition"][0].startswith("attachment;")
+    assert query["response-content-type"][0] == content_type
 
 
 def test_jobs_api_rejects_invalid_page_arguments(client, db_session, monkeypatch):

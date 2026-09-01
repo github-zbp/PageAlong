@@ -1,0 +1,4 @@
+<resources>
+  <string name="app_name">PageAlong</string>
+  <string name="share_into_scheme" translatable="false">pagealong</string>
+</resources>

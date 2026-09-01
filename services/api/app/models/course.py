@@ -116,6 +116,7 @@ class ArticleText(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     text: Mapped[str] = mapped_column(Text)
     content_markdown: Mapped[str] = mapped_column(Text, default="")
+    outline_json: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     content_hash: Mapped[str] = mapped_column(String(128), default="")
     source_metadata_json: Mapped[str] = mapped_column(Text, default="{}")
     extraction_metadata_json: Mapped[str] = mapped_column(Text, default="{}")

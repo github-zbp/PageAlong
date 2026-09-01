@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ExternalLinkIcon, FullscreenExitIcon, FullscreenIcon, SettingsIcon } from "./UiIcons";
+import { ExternalLinkIcon, FullscreenExitIcon, FullscreenIcon, OutlineIcon, SettingsIcon } from "./UiIcons";
 import { CourseDownloadActions } from "./CourseDownloadActions";
 import { CoursePlayer } from "./CoursePlayer";
 import { CourseRetryActions } from "./CourseRetryActions";
@@ -28,16 +28,20 @@ export function CourseDetailContent({
   autoplay = false,
   course,
   isFullscreen = false,
+  isOutlineOpen = false,
   locale,
   onCourseChange,
+  onToggleOutline,
   onToggleFullscreen,
   onReloadCourse
 }: {
   autoplay?: boolean;
   course: Course;
   isFullscreen?: boolean;
+  isOutlineOpen?: boolean;
   locale: Locale;
   onCourseChange: (course: Course) => void;
+  onToggleOutline?: () => void;
   onToggleFullscreen?: () => void;
   onReloadCourse: () => void | Promise<void>;
 }) {
@@ -67,6 +71,7 @@ export function CourseDetailContent({
   const canonicalLocator = course?.source?.canonical_locator || "";
   const canonicalLocatorIsLink = /^https?:\/\//i.test(canonicalLocator);
   const showExternalLink = Boolean(course?.source && canonicalLocatorIsLink && course.source.source_kind === "url");
+  const outline = course.outline ?? [];
 
   const headerMeta = useMemo(() => {
     return [
@@ -168,7 +173,28 @@ export function CourseDetailContent({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <StatusBadge locale={locale} status={course.status} />
+            <StatusBadge
+              href={course.status === "audio_generating" ? `/${locale}/jobs` : undefined}
+              locale={locale}
+              status={course.status}
+            />
+            {outline.length > 0 && onToggleOutline ? (
+              <button
+                aria-label={isOutlineOpen ? dictionary.reading.closeOutline : dictionary.reading.openOutline}
+                aria-pressed={isOutlineOpen}
+                className={[
+                  "pa-focus inline-flex h-9 w-9 items-center justify-center rounded-md border bg-[var(--pa-surface)] hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]",
+                  isOutlineOpen
+                    ? "border-[var(--pa-green)] text-[var(--pa-green)]"
+                    : "border-[var(--pa-line)] text-[var(--pa-muted)]"
+                ].join(" ")}
+                onClick={onToggleOutline}
+                title={isOutlineOpen ? dictionary.reading.closeOutline : dictionary.reading.openOutline}
+                type="button"
+              >
+                <OutlineIcon className="h-4 w-4" />
+              </button>
+            ) : null}
             {showExternalLink ? (
               <a
                 aria-label={`${dictionary.detail.openOriginalPage}: ${canonicalLocator}`}
@@ -274,6 +300,7 @@ export function CourseDetailContent({
         course={course}
         locale={locale}
         autoplay={autoplay}
+        outline={outline}
         showReaderPreferencesSection={false}
         showSourceInfo={false}
       />

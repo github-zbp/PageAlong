@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   title: "隐私政策 - 页相随 PageAlong"
 };
 
+export const dynamic = "force-dynamic";
+
 const privacyCopy = {
   zh: {
     eyebrow: "隐私政策",

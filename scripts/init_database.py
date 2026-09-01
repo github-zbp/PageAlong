@@ -88,6 +88,7 @@ def create_application_tables(engine: Engine) -> None:
     ensure_media_schema(engine)
     ensure_file_import_schema(engine)
     ensure_auth_schema(engine)
+    ensure_admin_content_schema(engine)
     with Session(engine) as session:
         seed_initial_admin(session)
         backfill_legacy_tags(session)
@@ -143,6 +144,7 @@ def ensure_article_text_schema(engine: Engine) -> None:
             "article_texts",
             {
                 "content_markdown": "TEXT NOT NULL DEFAULT ''",
+                "outline_json": "TEXT",
                 "content_hash": "VARCHAR(128) NOT NULL DEFAULT ''",
                 "source_metadata_json": "TEXT NOT NULL DEFAULT '{}'",
                 "extraction_metadata_json": "TEXT NOT NULL DEFAULT '{}'",
@@ -301,9 +303,36 @@ def ensure_auth_schema(engine: Engine) -> None:
             {
                 "must_change_password_at_next_login": boolean_default_false,
                 "last_login_at": timestamp_type,
+                "last_dashboard_at": timestamp_type,
+                "last_dashboard_locale": "VARCHAR(16) NOT NULL DEFAULT ''",
             },
         )
         connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email ON users (email)"))
+
+
+def ensure_admin_content_schema(engine: Engine) -> None:
+    with engine.begin() as connection:
+        table_names = set(inspect(connection).get_table_names())
+
+        if "blog_posts" in table_names:
+            connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_blog_posts_slug ON blog_posts (slug)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_blog_posts_language ON blog_posts (language)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_blog_posts_status ON blog_posts (status)"))
+
+        if "announcements" in table_names:
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_announcements_language ON announcements (language)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_announcements_status ON announcements (status)"))
+            connection.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_announcements_display_position ON announcements (display_position)")
+            )
+
+        if "admin_impersonation_tokens" in table_names:
+            connection.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_admin_impersonation_tokens_token_hash "
+                    "ON admin_impersonation_tokens (token_hash)"
+                )
+            )
 
 
 def seed_initial_admin(session: Session) -> None:

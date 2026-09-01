@@ -44,10 +44,12 @@
 - 后端业务逻辑放在 `services/api/app/services/`，路由层 HTTP 细节放在 `services/api/app/api/routes/`。
 - Worker 编排逻辑放在 `services/worker/app/tasks/`。
 - 前端 API 访问集中在 `apps/web/src/lib/api.ts`，界面文案集中在 `apps/web/src/lib/i18n.ts`。
+- 公开官网页（首页、指南、博客、产品故事、下载、隐私政策、用户条款）必须保持服务端渲染；即便页面暂时只是占位内容，也不要改成纯客户端渲染，首屏正文和导航应由 App Router 的 server component 直接输出。
 - 前端使用 npm；没有明确要求时不要切换包管理器。
 - Python 沿用现有 `venv + pip` 工作流；没有明确要求时不要引入 `uv` 或 Poetry。
 - 除非任务明确要求接入真实音频生成，否则保留当前 fake TTS 流程。
 - 本地开发当前使用固定的 `X-User-Id` 请求头。除非明确实现认证，否则不要加入认证假设。
+- APP 的自定义顶部栏不能和手机系统顶部栏重合，任何原生页面顶部工具栏都必须预留 safe area / 状态栏内边距。
 
 ## 安全和 Git 约束
 
@@ -63,3 +65,8 @@
 - Worker 改动运行 `cd services/worker && .venv/bin/python -m pytest -q`。
 - 前端行为改动运行 `make test-web`；如果改到路由、Server Component 或 API 连接方式，再考虑运行 `cd apps/web && npm run build`。
 - 仅文档改动使用有针对性的 `rg` 检查和 `git diff` 验证，不需要跑全量测试。
+
+## APP端和web端的代码边界
+
+- APP端的代码位于apps/mobile目录下，web端的代码位于apps/web目录下；
+- 之后凡是明确提出“APP端的优化点或者需求点”时请在apps/mobile目录范围内查看代码，不要把web端和APP端的代码搞混，导致代码改错位置；

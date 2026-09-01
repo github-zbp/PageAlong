@@ -8,6 +8,9 @@ const apiHeaders = {
   "Content-Type": "application/json"
 };
 
+const consentLabelZh = "我已阅读并同意《隐私政策》和《用户条款》";
+const consentRequiredZh = "请先勾选隐私协议";
+
 async function routeConsoleBootstrap(page: Page, token: string, role: "user" | "admin" = "user") {
   await page.addInitScript((value) => {
     window.localStorage.setItem("pagealong_auth_token", value);
@@ -114,6 +117,108 @@ test("user can start registration from email code", async ({ page }) => {
   await page.getByRole("button", { name: "注册" }).click();
 
   await expect(page).toHaveURL(/\/zh\/dashboard$/, { timeout: 10000 });
+});
+
+test("login page defaults the privacy consent checkbox and blocks sign in when it is unchecked", async ({ page }) => {
+  let loginRequested = false;
+
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/login$/, async (route) => {
+    loginRequested = true;
+    await route.fulfill({
+      status: 200,
+      headers: apiHeaders,
+      body: JSON.stringify({
+        token: "test-token",
+        user: {
+          id: "user_1",
+          email: "reader@example.com",
+          role: "user",
+          status: "active",
+          email_verified_at: "2026-08-02T00:00:00",
+          must_change_password_at_next_login: false,
+          last_login_at: "2026-08-02T00:00:00",
+          created_at: "2026-08-02T00:00:00"
+        }
+      })
+    });
+  });
+
+  await page.goto("/zh/login");
+  const consent = page.getByRole("checkbox", { name: consentLabelZh });
+
+  await expect(consent).toBeChecked();
+  await consent.uncheck();
+  await page.getByLabel("邮箱").fill("reader@example.com");
+  await page.getByLabel("密码").fill("abc12345");
+  await page.getByRole("button", { name: "登录" }).click();
+
+  await expect(page.getByText(consentRequiredZh)).toBeVisible();
+  await expect(page).toHaveURL(/\/zh\/login$/);
+  expect(loginRequested).toBe(false);
+});
+
+test("register page defaults the privacy consent checkbox and blocks code sending and registration when it is unchecked", async ({
+  page
+}) => {
+  let codeRequested = false;
+  let registerRequested = false;
+
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/email\/code$/, async (route) => {
+    codeRequested = true;
+    await route.fulfill({ status: 204, headers: apiHeaders });
+  });
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/register$/, async (route) => {
+    registerRequested = true;
+    await route.fulfill({
+      status: 201,
+      headers: apiHeaders,
+      body: JSON.stringify({
+        token: "register-token",
+        user: {
+          id: "user_2",
+          email: "new@example.com",
+          role: "user",
+          status: "active",
+          email_verified_at: "2026-08-02T00:00:00",
+          must_change_password_at_next_login: false,
+          last_login_at: "2026-08-02T00:00:00",
+          created_at: "2026-08-02T00:00:00"
+        }
+      })
+    });
+  });
+
+  await page.goto("/zh/register");
+  const consent = page.getByRole("checkbox", { name: consentLabelZh });
+
+  await expect(consent).toBeChecked();
+  await consent.uncheck();
+  await page.getByLabel("邮箱").fill("new@example.com");
+  await page.getByLabel("密码").fill("abc12345");
+  await page.getByLabel("验证码").fill("123456");
+
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  await expect(page.getByText(consentRequiredZh)).toBeVisible();
+  await expect(page).toHaveURL(/\/zh\/register$/);
+  expect(codeRequested).toBe(false);
+
+  await page.getByRole("button", { name: "注册" }).click();
+  await expect(page.getByText(consentRequiredZh)).toBeVisible();
+  await expect(page).toHaveURL(/\/zh\/register$/);
+  expect(registerRequested).toBe(false);
+});
+
+test("forgot password page disables resend after sending a code", async ({ page }) => {
+  await page.route(/http:\/\/localhost:(8000|8070)\/auth\/password-reset\/code$/, async (route) => {
+    await route.fulfill({ status: 204, headers: apiHeaders });
+  });
+
+  await page.goto("/zh/forgot-password");
+  await page.getByLabel("邮箱").fill("reader@example.com");
+  await page.getByRole("button", { name: "发送验证码" }).click();
+
+  await expect(page.getByText("验证码已发送，如果没找到请到邮件垃圾箱看看~")).toBeVisible();
+  await expect(page.getByRole("button", { name: "重新发送 (60)" })).toBeDisabled();
 });
 
 test("admin can open the user management page", async ({ page }) => {
