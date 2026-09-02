@@ -6,15 +6,18 @@ import { ConsoleShell } from "@/components/ConsoleShell";
 import { CourseCard } from "@/components/CourseCard";
 import { DashboardAnnouncements } from "@/components/DashboardAnnouncements";
 import { PageHeader } from "@/components/PageHeader";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { SummaryCard } from "@/components/SummaryCard";
 import { deleteCourse, listCourses, recordDashboardActivity } from "@/lib/api";
 import { dictionaries, normalizeLocale } from "@/lib/i18n";
+import { hasCompletedDashboardOnboarding, markDashboardOnboardingCompleted } from "@/lib/onboarding";
 import type { CourseSummary } from "@/lib/types";
 
 export default function DashboardPage({ params }: { params: { locale: string } }) {
   const locale = normalizeLocale(params.locale);
   const dictionary = dictionaries[locale];
   const [courses, setCourses] = useState<CourseSummary[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasCompletedDashboardOnboarding());
 
   async function refresh() {
     setCourses(await listCourses());
@@ -59,6 +62,15 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       />
 
       <DashboardAnnouncements locale={locale} />
+
+      <OnboardingTour
+        copy={dictionary.dashboard.onboarding}
+        open={showOnboarding}
+        onComplete={() => {
+          markDashboardOnboardingCompleted();
+          setShowOnboarding(false);
+        }}
+      />
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
         <SummaryCard label={dictionary.dashboard.totalCourses} value={courses.length} />

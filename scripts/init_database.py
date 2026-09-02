@@ -336,19 +336,23 @@ def ensure_admin_content_schema(engine: Engine) -> None:
 
 
 def seed_initial_admin(session: Session) -> None:
-    from app.models.user import User, UserRole, UserStatus
+    from app.models.user import AuthSession, User, UserRole, UserStatus
     from app.services.auth_security import hash_password, normalize_email
 
     email = normalize_email(os.environ.get("ADMIN_BOOTSTRAP_EMAIL", DEFAULT_ADMIN_BOOTSTRAP_EMAIL))
     password = os.environ.get("ADMIN_BOOTSTRAP_PASSWORD")
-    password_hash = hash_password(password) if password else DEFAULT_ADMIN_BOOTSTRAP_PASSWORD_HASH
+    password_provided = bool(password)
+    password_hash = hash_password(password) if password_provided else DEFAULT_ADMIN_BOOTSTRAP_PASSWORD_HASH
 
     existing = session.query(User).filter(User.email == email).one_or_none()
     if existing is not None:
-        if existing.role != UserRole.ADMIN or existing.status != UserStatus.ACTIVE:
-            existing.role = UserRole.ADMIN
-            existing.status = UserStatus.ACTIVE
-            session.commit()
+        existing.role = UserRole.ADMIN
+        existing.status = UserStatus.ACTIVE
+        if password_provided:
+            existing.password_hash = password_hash
+            existing.must_change_password_at_next_login = False
+            session.query(AuthSession).filter(AuthSession.user_id == existing.id).delete(synchronize_session=False)
+        session.commit()
         return
 
     admin = User(
@@ -356,7 +360,7 @@ def seed_initial_admin(session: Session) -> None:
         password_hash=password_hash,
         role=UserRole.ADMIN,
         status=UserStatus.ACTIVE,
-        must_change_password_at_next_login=True,
+        must_change_password_at_next_login=not password_provided,
     )
     session.add(admin)
     session.commit()

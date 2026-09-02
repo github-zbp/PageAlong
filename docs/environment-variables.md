@@ -2,6 +2,8 @@
 
 本文说明服务器部署时 `.env` 中各环境变量的含义、是否必填，以及推荐填写方式。
 
+`make bootstrap-prod` 和 `make compose-prod` 都会在缺少 `.env` 时先从 `.env.example` 复制一份，所以第一次部署不要求你先手工创建 `.env`。`make compose-prod` 会在执行过程中提示补齐数据库、Redis 和媒体存储的最小运行配置，并自动写回 `.env`；首次公开部署前仍然要检查认证、邮箱和各类密钥是否符合你的环境。
+
 注意：
 
 - 不要把真实数据库密码、Redis 密码、对象存储密钥、SMTP 密钥提交到 Git。
@@ -42,8 +44,10 @@ CORS_ALLOW_ORIGINS=https://你的域名
 | `REDIS_KEY_PREFIX` | Redis key 前缀，避免共享 Redis 时 key 冲突 | 可选 | 共享 Redis 时建议 `web_reader:` |
 | `API_HOST` | API 监听地址 | 脚本使用 | 反代部署建议 `127.0.0.1`；需要外部直连时才用 `0.0.0.0` |
 | `API_PORT` | API 监听端口 | 脚本使用 | 默认 `8000`；本机开发可用 `8070` 避免端口冲突 |
+| `API_HOST_PORT` | compose 模式下宿主机暴露的 API 端口 | 可选 | 默认 `8000`，如果宿主机 8000 被占用可以改掉 |
 | `WEB_HOST` | Next.js Web 监听地址 | 脚本使用 | 反代部署建议 `127.0.0.1` |
 | `WEB_PORT` | Next.js Web 监听端口 | 脚本使用 | 默认 `3000` |
+| `WEB_HOST_PORT` | compose 模式下宿主机暴露的 Web 端口 | 可选 | 默认 `3000`，如果宿主机 3000 被占用可以改掉 |
 | `API_BASE_URL` | Next.js 服务端访问 API 的地址 | 生产建议填 | `http://127.0.0.1:8000` |
 | `NEXT_PUBLIC_API_BASE_URL` | 浏览器访问 API 的地址，会进入前端构建产物 | 生产必填 | 同域反代填 `/api`；分域填 `https://api.example.com` |
 | `CORS_ALLOW_ORIGINS` | 允许跨域访问 API 的前端 origin 列表 | 分域部署必填 | 多个用逗号分隔，如 `https://www.example.com,https://example.com` |
@@ -89,8 +93,8 @@ CORS_ALLOW_ORIGINS=https://你的域名
 | `BREVO_SMTP_PASSWORD` | Brevo SMTP 密钥 | 启用邮箱验证码时必填 | Brevo SMTP key，不是 Brevo 账号密码，也不是 API key |
 | `MAIL_FROM_EMAIL` | 发件邮箱 | 启用邮箱验证码时必填 | Brevo 中已验证的 sender 地址 |
 | `MAIL_FROM_NAME` | 发件人显示名 | 可选 | `PageAlong` |
-| `ADMIN_BOOTSTRAP_EMAIL` | 初始化管理员邮箱 | 首次 `make init-db` 时建议填 | 你的管理员邮箱 |
-| `ADMIN_BOOTSTRAP_PASSWORD` | 初始化管理员密码 | 首次 `make init-db` 时建议填 | 强密码；初始化后不要长期保留明文 |
+| `ADMIN_BOOTSTRAP_EMAIL` | 初始化管理员邮箱 | 部署脚本会在初始化时提示输入；也可手工预置 | 你的管理员邮箱 |
+| `ADMIN_BOOTSTRAP_PASSWORD` | 初始化管理员密码 | 部署脚本会在初始化时提示输入；也可手工预置 | 强密码；初始化后不要长期保留明文 |
 
 如果 `AUTH_DEV_BYPASS=false`，注册和找回密码依赖邮箱验证码，因此 SMTP 相关变量需要可用。当前验证码存储实现是进程内内存，如果 API 多进程或多实例，验证码可能只在发码的那个进程有效。
 
@@ -293,4 +297,3 @@ S3_SECRET_ACCESS_KEY=<r2-secret-key>
 S3_BUCKET=pagealong-media-prod
 MEDIA_PUBLIC_BASE_URL=https://media.example.com
 ```
-

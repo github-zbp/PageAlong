@@ -3,8 +3,7 @@
 ## 项目背景
 
 - 本仓库是页相随 PageAlong：一个面向移动学习场景的 Web Reader，用于把粘贴的文本转成可管理的有声课程记录。
-- 当前基础架构包括 FastAPI API、Celery worker、PostgreSQL、Redis、MinIO 兼容对象存储，以及 Next.js H5/Web 前端。
-- 真实 TTS、URL 导入、文件上传、OCR、认证、支付和生产可观测性尚未实现。不要把这些描述成已经可用的功能。
+- 当前基础架构包括 FastAPI API、Celery worker、PostgreSQL、Redis，以及 Next.js H5/Web 前端。
 
 ## 仓库结构
 
@@ -23,7 +22,7 @@
   - API：`API_PORT=8070 make api`
   - Web：`API_BASE_URL=http://127.0.0.1:8070 NEXT_PUBLIC_API_BASE_URL=http://localhost:8070 make web`
 - 不要为了这个本地端口偏好去修改 `Makefile` 默认 API 端口、`.env.example` 默认值、生产运行文档或源码默认值。
-- `make up` 用于管理本地 Postgres、Redis 和 MinIO 服务。启动或停止 Docker 前，先确认用户当前环境是否需要。
+- `make up` 用于管理本地 Postgres、Redis服务。启动或停止 Docker 前，先确认用户当前环境是否需要。
 
 ## 常用命令
 

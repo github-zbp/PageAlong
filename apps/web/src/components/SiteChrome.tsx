@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BrandMark } from "./BrandMark";
 import type { Locale } from "@/lib/i18n";
 import type { SiteLink } from "@/lib/site";
 
@@ -75,9 +76,14 @@ export function SiteChrome({
       <header className="sticky top-0 z-30 border-b border-[var(--pa-line)] bg-[var(--pa-surface)] backdrop-blur-sm">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
           <div className="grid gap-3 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
-            <Link href={homeHref} className="pa-focus min-w-0">
-              <span className="block text-sm font-semibold text-[var(--pa-ink)]">{brandPrimary}</span>
-              <span className="mt-0.5 block truncate text-[11px] text-[var(--pa-muted)]">{brandSecondary}</span>
+            <Link href={homeHref} className="pa-focus flex min-w-0 items-center gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-bg)]">
+                <BrandMark className="h-6 w-6" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[var(--pa-ink)]">{brandPrimary}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-[var(--pa-muted)]">{brandSecondary}</span>
+              </span>
             </Link>
 
             <nav className="hidden items-center justify-center gap-2 lg:flex" aria-label={locale === "zh" ? "主导航" : "Primary navigation"}>
@@ -134,9 +140,14 @@ export function SiteChrome({
       <footer className="border-t border-[var(--pa-line)] bg-[var(--pa-surface)]">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-md">
-              <p className="text-sm font-semibold text-[var(--pa-ink)]">{brandPrimary}</p>
-              <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{brandSecondary}</p>
+            <div className="flex max-w-md items-start gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-bg)]">
+                <BrandMark className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--pa-ink)]">{brandPrimary}</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--pa-muted)]">{brandSecondary}</p>
+              </div>
             </div>
             <div className="flex flex-wrap gap-4 text-sm">
               {footerLinks.map((link) => (

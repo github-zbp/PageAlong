@@ -1,0 +1,155 @@
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { Feather } from "@expo/vector-icons";
+import { Pressable, Text, View } from "react-native";
+import type { WorkbenchCopy } from "@/lib/i18n";
+import { useTheme } from "@/providers/ThemeProvider";
+
+type IconName = ComponentProps<typeof Feather>["name"];
+
+const STEP_ICONS: IconName[] = ["plus", "clock", "book-open"];
+
+type Props = {
+  copy: WorkbenchCopy["onboarding"];
+  visible: boolean;
+  onComplete: () => void;
+};
+
+export function WorkbenchOnboardingSheet({ copy, onComplete, visible }: Props) {
+  const { tokens } = useTheme();
+  const [activeIndex, setActiveIndex] = useState(0);
+  const transitionLockedRef = useRef(false);
+
+  useEffect(() => {
+    if (visible) {
+      setActiveIndex(0);
+    }
+  }, [visible]);
+
+  if (!visible) {
+    return null;
+  }
+
+  const currentStep = copy.steps[activeIndex] ?? copy.steps[0];
+  const isLastStep = activeIndex >= copy.steps.length - 1;
+  const iconName = STEP_ICONS[activeIndex] ?? STEP_ICONS[STEP_ICONS.length - 1];
+
+  const releaseTransitionLock = () => {
+    setTimeout(() => {
+      transitionLockedRef.current = false;
+    }, 50);
+  };
+
+  const handlePrimaryPress = () => {
+    if (transitionLockedRef.current) {
+      return;
+    }
+    transitionLockedRef.current = true;
+    if (isLastStep) {
+      onComplete();
+      releaseTransitionLock();
+      return;
+    }
+    setActiveIndex((current) => Math.min(current + 1, copy.steps.length - 1));
+    releaseTransitionLock();
+  };
+
+  return (
+    <View
+      accessibilityLabel={copy.title}
+      accessibilityRole="dialog"
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+        zIndex: 1000,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.48)",
+        padding: 16
+      }}
+    >
+      <View
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          borderRadius: 20,
+          borderWidth: 1,
+          borderColor: tokens.border,
+          backgroundColor: tokens.surface,
+          padding: 20,
+          gap: 16
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={{ color: tokens.text, fontSize: 20, fontWeight: "700" }}>{copy.title}</Text>
+            <Text style={{ color: tokens.mutedText, fontSize: 13, lineHeight: 19 }}>{copy.subtitle}</Text>
+          </View>
+          <Text style={{ color: tokens.mutedText, fontSize: 12, fontWeight: "600" }}>
+            {copy.stepLabel(activeIndex + 1, copy.steps.length)}
+          </Text>
+        </View>
+
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+          <View
+            style={{
+              width: 52,
+              height: 52,
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: 18,
+              borderWidth: 1,
+              borderColor: tokens.border,
+              backgroundColor: tokens.elevatedSurface
+            }}
+          >
+            <Feather name={iconName} size={22} color={tokens.accent} />
+          </View>
+          <View style={{ flex: 1, gap: 8 }}>
+            <Text style={{ color: tokens.text, fontSize: 18, fontWeight: "700" }}>{currentStep.title}</Text>
+            <Text style={{ color: tokens.mutedText, fontSize: 14, lineHeight: 21 }}>{currentStep.body}</Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {copy.steps.map((step, index) => (
+            <View
+              key={step.key}
+              style={{
+                flex: 1,
+                height: 6,
+                borderRadius: 999,
+                backgroundColor: index <= activeIndex ? tokens.accent : tokens.border,
+                opacity: index === activeIndex ? 1 : 0.5
+              }}
+            />
+          ))}
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          onPress={handlePrimaryPress}
+          style={({ pressed }) => ({
+            minHeight: 46,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            borderRadius: 14,
+            backgroundColor: tokens.accent,
+            opacity: pressed ? 0.82 : 1
+          })}
+        >
+          <Text style={{ color: tokens.surface, fontSize: 16, fontWeight: "700" }}>
+            {isLastStep ? copy.complete : copy.next}
+          </Text>
+          <Feather name="arrow-right" size={16} color={tokens.surface} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+export default WorkbenchOnboardingSheet;

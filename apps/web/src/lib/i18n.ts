@@ -137,6 +137,30 @@ export const dictionaries = {
     dashboard: {
       title: "工作台",
       subtitle: "继续上次的学习，或导入新的内容。",
+      onboarding: {
+        title: "开始使用 PageAlong",
+        subtitle: "按这个顺序开始上手。",
+        steps: [
+          {
+            key: "import",
+            title: "先导入内容",
+            body: "从课程导入开始，粘贴文本、输入网页链接，或者上传文件。"
+          },
+          {
+            key: "continue",
+            title: "回到工作台继续",
+            body: "有播放进度时，工作台会把继续学习卡片放在最前面。"
+          },
+          {
+            key: "organize",
+            title: "在课程库里整理",
+            body: "在课程库里整理、搜索、标星和分系列，导出和下载任务也都在这里。"
+          }
+        ],
+        next: "下一步",
+        complete: "完成",
+        stepLabel: (current: number, total: number) => `步骤 ${current}/${total}`
+      },
       primaryAction: "课程导入",
       totalCourses: "课程",
       textReady: "待生成",
@@ -556,6 +580,30 @@ export const dictionaries = {
     dashboard: {
       title: "Dashboard",
       subtitle: "Continue learning or import something new.",
+      onboarding: {
+        title: "Get started with PageAlong",
+        subtitle: "Follow this path to learn the basics.",
+        steps: [
+          {
+            key: "import",
+            title: "Import something to listen to",
+            body: "Start in course import, then paste text, enter a web page, or upload a file."
+          },
+          {
+            key: "continue",
+            title: "Return here to keep going",
+            body: "When a course has playback progress, the workbench puts it first."
+          },
+          {
+            key: "organize",
+            title: "Organize in the library",
+            body: "Use the library to search, star, group into series, and manage downloads."
+          }
+        ],
+        next: "Next",
+        complete: "Done",
+        stepLabel: (current: number, total: number) => `Step ${current}/${total}`
+      },
       primaryAction: "Course import",
       totalCourses: "Courses",
       textReady: "To generate",

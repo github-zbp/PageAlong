@@ -1,0 +1,100 @@
+x-api-worker-build: &api_worker_build
+  context: .
+  dockerfile: docker/api-worker.Dockerfile
+  args:
+    HOST_UID: ${HOST_UID:-1000}
+    HOST_GID: ${HOST_GID:-1000}
+
+x-web-build: &web_build
+  context: .
+  dockerfile: docker/web.Dockerfile
+  args:
+    HOST_UID: ${HOST_UID:-1000}
+    HOST_GID: ${HOST_GID:-1000}
+    NEXT_BUILD_CPUS: ${NEXT_BUILD_CPUS:-1}
+    API_BASE_URL: ${API_BASE_URL:-http://api:8000}
+    NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api}
+
+services:
+  api:
+    image: web-reader-api-worker:prod
+    build: *api_worker_build
+    command:
+      - python
+      - -m
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    working_dir: /app/services/api
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    env_file:
+      - .env
+      - storage/deploy/compose-prod.env
+    environment:
+      API_HOST: 0.0.0.0
+      API_PORT: "8000"
+      PYTHONPATH: /app/services/api
+    volumes:
+      - ./services/api/storage:/app/services/api/storage
+      - ./services/worker/storage:/app/services/worker/storage
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - "${API_HOST_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  worker:
+    image: web-reader-api-worker:prod
+    build: *api_worker_build
+    command:
+      - python
+      - -m
+      - celery
+      - -A
+      - app.celery_app
+      - worker
+      - --loglevel=info
+    working_dir: /app/services/worker
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    env_file:
+      - .env
+      - storage/deploy/compose-prod.env
+    environment:
+      PYTHONPATH: /app/services/worker
+      API_CLI_WORKDIR: /app/services/api
+      API_CLI_PYTHON: /opt/venv/bin/python
+    volumes:
+      - ./services/api/storage:/app/services/api/storage
+      - ./services/worker/storage:/app/services/worker/storage
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+
+  web:
+    image: web-reader-web:prod
+    build: *web_build
+    command:
+      - ./node_modules/.bin/next
+      - start
+      - -H
+      - 0.0.0.0
+      - -p
+      - "3000"
+    working_dir: /app/apps/web
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    env_file:
+      - .env
+      - storage/deploy/compose-prod.env
+    environment:
+      API_BASE_URL: http://api:8000
+      NEXT_PUBLIC_API_BASE_URL: /api
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: "3000"
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    depends_on:
+      - api
+    restart: unless-stopped

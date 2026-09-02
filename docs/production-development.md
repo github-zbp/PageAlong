@@ -206,12 +206,14 @@ EXPO_PUBLIC_WEB_BASE_URL=https://web-reader.zbpblog.cn EXPO_PUBLIC_API_BASE_URL=
 ## Apk包构建
 配置文件位于：apps/mobile/eas.json
 
-执行如下命令即可构建Apk包
+EAS 云端构建不会依赖本机未提交的 `apps/mobile/.env`。`preview` 和 `production` 包使用 `apps/mobile/eas.json` 里的公开 `EXPO_PUBLIC_*` 构建变量；本地真机/模拟器调试仍可继续在命令行或 `apps/mobile/.env` 中覆盖。
+
+执行如下命令即可构建Apk包：
 ```
 cd apps/mobile
 eas login
 eas build:configure
-eas build -p android --profile preview
+eas build -p android --profile preview --clear-cache
 ```
 
 ## 脚本

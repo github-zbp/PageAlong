@@ -1,6 +1,9 @@
 .DS_Store
 .env
 .venv
+./docs/production-development.md
+./skills-lock.json
+./TODO.md
 __pycache__/
 .pytest_cache/
 .mypy_cache/

@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { BrandMark } from "@/components/BrandMark";
 import { Screen } from "@/components/Screen";
 import { getAuthCopy } from "@/lib/i18n";
 import { useLocalePreference } from "@/lib/locale";
@@ -225,12 +226,15 @@ export default function StartScreen() {
                 width: 38,
                 height: 38,
                 borderRadius: 12,
-                backgroundColor: tokens.accent,
+                backgroundColor: tokens.surface,
+                borderWidth: 1,
+                borderColor: tokens.border,
                 alignItems: "center",
-                justifyContent: "center"
+                justifyContent: "center",
+                overflow: "hidden"
               }}
             >
-              <Feather name="book-open" size={18} color={tokens.surface} />
+              <BrandMark size={28} />
             </View>
             <Text style={{ color: tokens.text, fontSize: 16, fontWeight: "600" }}>{copy.brand}</Text>
           </View>

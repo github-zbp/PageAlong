@@ -1,5 +1,7 @@
 # 宝塔部署指南
 
+这份文档保留为宝塔 / 手工部署附录。推荐先看 [部署与安装](production-deployment.md) 了解新的统一入口。
+
 本文说明如何在宝塔面板服务器上部署页相随 PageAlong Web Reader，并通过域名访问：
 
 ```text

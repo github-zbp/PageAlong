@@ -43,7 +43,7 @@ endif
 
 export
 
-.PHONY: deps deps-extension deps-kokoro up down init-db api api-prod worker web mobile mobile-android test-api test-web test-extension test-mobile build-extension test
+.PHONY: deps deps-extension deps-kokoro up down init-db api api-prod worker web mobile mobile-android test-api test-web test-extension test-mobile build-extension test bootstrap-prod compose-prod
 
 deps:
 	cd services/api && $(PYTHON) -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install -e . pytest pytest-asyncio ruff
@@ -105,5 +105,11 @@ test-mobile:
 
 build-extension:
 	cd apps/extension && $(NPM) run build
+
+bootstrap-prod:
+	bash scripts/bootstrap-prod.sh
+
+compose-prod:
+	bash scripts/compose-prod.sh
 
 test: test-api test-web test-extension test-mobile

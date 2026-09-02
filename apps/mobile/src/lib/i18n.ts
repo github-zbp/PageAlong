@@ -171,7 +171,7 @@ type MeCopy = {
   themeValues: Record<"light" | "dark", string>;
 };
 
-type WorkbenchCopy = {
+export type WorkbenchCopy = {
   title: string;
   action: string;
   continueLearning: string;
@@ -179,6 +179,20 @@ type WorkbenchCopy = {
   signedInPrefix: string;
   signedOutBody: string;
   recentBody: string;
+  onboarding: OnboardingCopy;
+};
+
+type OnboardingCopy = {
+  title: string;
+  subtitle: string;
+  steps: Array<{
+    key: string;
+    title: string;
+    body: string;
+  }>;
+  next: string;
+  complete: string;
+  stepLabel: (current: number, total: number) => string;
 };
 
 type LibraryCopy = {
@@ -739,7 +753,31 @@ export function getWorkbenchCopy(locale: LocalePreference): WorkbenchCopy {
       recentReading: "Recent reading",
       signedInPrefix: "Current account: ",
       signedOutBody: "The session will reappear once the login flow is connected later.",
-      recentBody: "The course list will be connected in a later stage."
+      recentBody: "The course list will be connected in a later stage.",
+      onboarding: {
+        title: "Get started in 3 steps",
+        subtitle: "Follow this path to make your first course.",
+        steps: [
+          {
+            key: "import",
+            title: "Import something to listen to",
+            body: "Use course import to paste text, open a web page, or upload a file."
+          },
+          {
+            key: "continue",
+            title: "Return here to keep going",
+            body: "When playback starts, the Continue learning card brings you back to the last place."
+          },
+          {
+            key: "organize",
+            title: "Organize in the library",
+            body: "Search, star, group into series, and manage downloads from the library."
+          }
+        ],
+        next: "Next",
+        complete: "Done",
+        stepLabel: (current, total) => `Step ${current}/${total}`
+      }
     };
   }
 
@@ -750,7 +788,31 @@ export function getWorkbenchCopy(locale: LocalePreference): WorkbenchCopy {
     recentReading: "最近阅读",
     signedInPrefix: "当前账号：",
     signedOutBody: "会话会在后续登录流程接入后恢复。",
-    recentBody: "这里会在后续 spec 中接入课程列表。"
+    recentBody: "这里会在后续 spec 中接入课程列表。",
+    onboarding: {
+      title: "先认识 3 个入口",
+      subtitle: "按这个顺序开始使用 PageAlong。",
+      steps: [
+        {
+          key: "import",
+          title: "先导入内容",
+          body: "点右上角“导入”或直接粘贴网页链接，把文章、笔记或文件变成课程。"
+        },
+        {
+          key: "continue",
+          title: "回到工作台继续",
+          body: "有进度时，从“继续学习”卡片接着听，播放位置会自动保存。"
+        },
+        {
+          key: "organize",
+          title: "去课程库整理",
+          body: "在课程库里搜索、标星、分系列，下载和阅读偏好也在这里。"
+        }
+      ],
+      next: "下一步",
+      complete: "完成",
+      stepLabel: (current, total) => `步骤 ${current}/${total}`
+    }
   };
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode, SVGProps } from "react";
+import { BrandMark } from "./BrandMark";
 
 type IconProps = SVGProps<SVGSVGElement>;
 
@@ -250,19 +251,8 @@ export function LogoutIcon(props: IconProps) {
   );
 }
 
-export function PageAlongMarkIcon(props: IconProps) {
-  return (
-    <BaseIcon {...props}>
-      <path
-        d="M7 4.5h7.8l4.2 4.2V18a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="1.8"
-      />
-      <path d="M14.8 4.5V8.7H19" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-      <path d="M8.5 12h5.5M8.5 15h3.5" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
-    </BaseIcon>
-  );
+export function PageAlongMarkIcon({ className }: { className?: string }) {
+  return <BrandMark className={className} />;
 }
 
 export function DashboardIcon(props: IconProps) {

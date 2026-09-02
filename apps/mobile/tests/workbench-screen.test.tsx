@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render } from "@testing-library/react-native";
+import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Pressable } from "react-native";
 import * as api from "@/lib/api";
 import CourseListRow, { COURSE_ROW_HEIGHT } from "@/components/CourseListRow";
 import { formatCourseMeta, formatUpdatedDate } from "@/lib/library";
 import { setLocalePreference } from "@/lib/locale";
+import {
+  loadWorkbenchOnboardingCompleted,
+  resetWorkbenchOnboardingCompletedForTests
+} from "@/lib/onboarding";
 import WorkbenchScreen from "../app/(tabs)/workbench";
 
 jest.mock("expo-router", () => ({
@@ -18,6 +23,26 @@ jest.mock("expo-router", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 24, right: 0, bottom: 0, left: 0 })
 }));
+
+jest.mock("@react-native-async-storage/async-storage", () => {
+  const store = new Map<string, string>();
+
+  return {
+    __esModule: true,
+    default: {
+      getItem: jest.fn(async (key: string) => store.get(key) ?? null),
+      setItem: jest.fn(async (key: string, value: string) => {
+        store.set(key, value);
+      }),
+      removeItem: jest.fn(async (key: string) => {
+        store.delete(key);
+      }),
+      clear: jest.fn(async () => {
+        store.clear();
+      })
+    }
+  };
+});
 
 jest.mock("@/providers/ThemeProvider", () => ({
   useTheme: () => ({
@@ -39,6 +64,14 @@ jest.mock("@/providers/ThemeProvider", () => ({
 jest.mock("@/providers/SessionProvider", () => ({
   useSession: () => ({ state: { status: "signed_out" } })
 }));
+
+jest.mock("@/lib/locale", () => {
+  const actual = jest.requireActual("@/lib/locale");
+  return {
+    ...actual,
+    useLocalePreference: jest.fn(() => "zh")
+  };
+});
 
 jest.mock("@/lib/api", () => {
   const actual = jest.requireActual("@/lib/api");
@@ -126,6 +159,50 @@ it("keeps course rows at a fixed height", async () => {
   );
 
   expect(COURSE_ROW_HEIGHT).toBe(96);
+});
+
+it("shows the onboarding steps on the first workbench visit and keeps them dismissed after completion", async () => {
+  await AsyncStorage.clear();
+  resetWorkbenchOnboardingCompletedForTests();
+  expect(await loadWorkbenchOnboardingCompleted()).toBe(false);
+  const listCoursesPage = api.listCoursesPage as jest.MockedFunction<typeof api.listCoursesPage>;
+  listCoursesPage.mockResolvedValue({
+    items: [],
+    pagination: { page: 1, page_size: 6, total: 0, total_pages: 1, has_previous: false, has_next: false }
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  const screen = await render(
+    <QueryClientProvider client={queryClient}>
+      <WorkbenchScreen />
+    </QueryClientProvider>
+  );
+
+  expect(screen.getByText("先导入内容")).toBeTruthy();
+  fireEvent.press(screen.getByText("下一步"));
+  await waitFor(() => {
+    expect(screen.getByText("回到工作台继续")).toBeTruthy();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  fireEvent.press(screen.getByText("下一步"));
+  await waitFor(() => {
+    expect(screen.getByText("去课程库整理")).toBeTruthy();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  fireEvent.press(screen.getByRole("button", { name: "完成" }));
+
+  await waitFor(async () => {
+    expect(await AsyncStorage.getItem("pagealong.onboarding.workbench.v1")).toBe("1");
+  });
+
+  screen.unmount();
+  const nextScreen = await render(
+    <QueryClientProvider client={queryClient}>
+      <WorkbenchScreen />
+    </QueryClientProvider>
+  );
+  expect(nextScreen.queryByText("先导入内容")).toBeNull();
+  listCoursesPage.mockReset();
 });
 
 it("formats workbench metadata in English", async () => {

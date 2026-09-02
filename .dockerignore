@@ -18,3 +18,12 @@
 **/test-results
 
 storage
+docs
+generated
+MVP.md
+PRODUCT.md
+TODO.md
+impeccable-3.6.0.tgz
+**/*.egg-info
+services/api/build
+services/worker/build

@@ -8,6 +8,7 @@ import { alternateLocale, dictionaries, type Locale } from "@/lib/i18n";
 import { readConsoleShellPreferences, updateConsoleShellPreferences } from "@/lib/console-shell-preferences";
 import type { AuthUser } from "@/lib/types";
 import { writeThemePreferences } from "@/lib/theme-preferences";
+import { BrandMark } from "./BrandMark";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { ImpersonationBanner } from "./ImpersonationBanner";
 import { CourseSearchBox } from "./CourseSearchBox";
@@ -248,8 +249,14 @@ export function ConsoleShell({
     <div className="min-h-screen bg-[var(--pa-bg)] text-[var(--pa-ink)]">
       <ImpersonationBanner />
       <header className="flex items-center justify-between gap-3 border-b border-[var(--pa-line)] bg-[var(--pa-surface)] px-4 py-3 md:hidden">
-        <Link href={`/${locale}/dashboard`} className="min-w-0">
-          <p className="truncate text-base font-semibold">{dictionary.brand}</p>
+        <Link href={`/${locale}/dashboard`} className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-muted-surface)]">
+            <BrandMark className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold">{dictionary.brand}</p>
+            <p className="truncate text-[11px] leading-4 text-[var(--pa-muted)]">{dictionary.brandSubtitle}</p>
+          </div>
         </Link>
         <div className="flex items-center gap-2">
           <Link
@@ -415,15 +422,20 @@ export function ConsoleShell({
             <Link
               href={`/${locale}/dashboard`}
               aria-label={dictionary.brand}
-              className={isSidebarCollapsed ? "inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-ink)]" : "block"}
+              className={isSidebarCollapsed ? "inline-flex h-10 w-10 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] text-[var(--pa-ink)]" : "flex items-start gap-3"}
               title={dictionary.brand}
             >
               {isSidebarCollapsed ? (
                 <PageAlongMarkIcon className="h-5 w-5" />
               ) : (
                 <>
-                  <p className="text-lg font-semibold tracking-normal">{dictionary.brand}</p>
-                  <p className="mt-1 max-w-44 text-xs leading-5 text-[var(--pa-muted)]">{dictionary.brandSubtitle}</p>
+                  <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)]">
+                    <BrandMark className="h-6 w-6" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-lg font-semibold tracking-normal">{dictionary.brand}</p>
+                    <p className="mt-1 max-w-44 text-xs leading-5 text-[var(--pa-muted)]">{dictionary.brandSubtitle}</p>
+                  </div>
                 </>
               )}
             </Link>

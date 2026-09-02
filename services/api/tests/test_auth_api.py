@@ -364,6 +364,7 @@ def test_logout_clears_session_cookie(client, db_session, monkeypatch):
 def test_seed_initial_admin_creates_account_once(monkeypatch):
     import app.models  # noqa: F401
     from app.models.user import User, UserRole
+    from app.services.auth_security import verify_password
     from scripts.init_database import seed_initial_admin
 
     engine = create_engine("sqlite://")
@@ -377,15 +378,19 @@ def test_seed_initial_admin_creates_account_once(monkeypatch):
         seed_initial_admin(session)
         first = session.query(User).filter(User.email == "admin@example.com").one()
         first_hash = first.password_hash
+        assert first.role == UserRole.ADMIN
+        assert first.must_change_password_at_next_login is False
 
     monkeypatch.setenv("ADMIN_BOOTSTRAP_PASSWORD", "changed-password")
     with SessionLocal() as session:
         seed_initial_admin(session)
         users = session.query(User).filter(User.email == "admin@example.com").all()
         assert len(users) == 1
-        assert users[0].password_hash == first_hash
+        assert users[0].password_hash != first_hash
         assert users[0].role == UserRole.ADMIN
-        assert users[0].must_change_password_at_next_login is True
+        assert users[0].must_change_password_at_next_login is False
+        assert not verify_password("1q2w3e4R", users[0].password_hash)
+        assert verify_password("changed-password", users[0].password_hash)
 
 
 def test_seed_initial_admin_uses_default_bootstrap_credentials(monkeypatch):
