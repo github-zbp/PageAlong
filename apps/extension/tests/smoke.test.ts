@@ -10,7 +10,7 @@ describe("extension manifest", () => {
     expect(manifest.permissions).toContain("tts");
     expect(manifest.permissions).toContain("cookies");
     expect(manifest.side_panel.default_path).toBe("sidepanel.html");
-    expect(manifest.host_permissions).toEqual(["https://web-reader.zbpblog.cn/*"]);
+    expect(manifest.host_permissions).toEqual(["https://www.pagealong.com/*"]);
   });
 
   it("declares toolbar and extension icons", () => {

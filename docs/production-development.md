@@ -197,7 +197,7 @@ cd /www/web_reader && scripts/prod-apps.sh restart
 cd apps/mobile
 source ~/.nvm/nvm.sh
 nvm use 24
-EXPO_PUBLIC_WEB_BASE_URL=https://web-reader.zbpblog.cn EXPO_PUBLIC_API_BASE_URL=https://web-reader.zbpblog.cn/api npm run start -- --clear
+EXPO_PUBLIC_WEB_BASE_URL=https://www.pagealong.com EXPO_PUBLIC_API_BASE_URL=https://www.pagealong.com/api npm run start -- --clear
 ```
 
 ## Apk包构建

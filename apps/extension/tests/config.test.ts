@@ -3,7 +3,7 @@ import { PAGEALONG_API_BASE_URL, PAGEALONG_WEB_BASE_URL } from "../src/lib/confi
 
 describe("extension config defaults", () => {
   it("uses the production service base urls by default", () => {
-    expect(PAGEALONG_API_BASE_URL).toBe("https://web-reader.zbpblog.cn/api");
-    expect(PAGEALONG_WEB_BASE_URL).toBe("https://web-reader.zbpblog.cn");
+    expect(PAGEALONG_API_BASE_URL).toBe("https://www.pagealong.com/api");
+    expect(PAGEALONG_WEB_BASE_URL).toBe("https://www.pagealong.com");
   });
 });

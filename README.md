@@ -19,7 +19,7 @@
 如果大家觉得好用，想帮我升级一下服务器，也欢迎赞助😁；
 
 ### 产品官网
-<https://web-reader.zbpblog.cn>（后续可能更换产品官网）
+<https://www.pagealong.com>（后续可能更换产品官网）
 
 ### 产品形态
 - Web 端

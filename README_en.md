@@ -15,7 +15,7 @@ PageAlong is a clip-based audio-course product for mobile learning. It turns web
 A small tool built entirely with vibe coding for personal use. Feel free to use it for free, no payment required.
 
 ### Official website
-<https://web-reader.zbpblog.cn> (subject to change later)
+<https://www.pagealong.com> (subject to change later)
 
 ### Product forms
 - Web app

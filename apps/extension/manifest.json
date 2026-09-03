@@ -20,7 +20,7 @@
     "128": "icons/icon-128.png"
   },
   "permissions": ["activeTab", "cookies", "scripting", "sidePanel", "storage", "tts"],
-  "host_permissions": ["https://web-reader.zbpblog.cn/*"],
+  "host_permissions": ["https://www.pagealong.com/*"],
   "background": {
     "service_worker": "background.js",
     "type": "module"

@@ -5,7 +5,7 @@
 本文说明如何在宝塔面板服务器上部署页相随 PageAlong Web Reader，并通过域名访问：
 
 ```text
-https://web-reader.zbpblog.cn
+https://www.pagealong.com
 ```
 
 部署方式：
@@ -13,8 +13,8 @@ https://web-reader.zbpblog.cn
 - 宝塔面板管理 Nginx、SSL、PostgreSQL、Redis。
 - Nginx 做同域反向代理。
 - API、worker、Web 使用 `tmux` 后台进程运行。
-- Web 页面访问 `https://web-reader.zbpblog.cn`。
-- API 访问同域路径 `https://web-reader.zbpblog.cn/api/...`。
+- Web 页面访问 `https://www.pagealong.com`。
+- API 访问同域路径 `https://www.pagealong.com/api/...`。
 
 注意：当前项目已经具备文本导入、课程列表、课程详情、播放进度保存、课程删除和 fake TTS 流程骨架。真实 TTS、URL 导入、文件上传、OCR、支付和生产可观测性仍在演进中，不要把这些能力描述成已完整上线。
 
@@ -149,7 +149,7 @@ WEB_PORT=3000
 
 API_BASE_URL=http://127.0.0.1:8000
 NEXT_PUBLIC_API_BASE_URL=/api
-CORS_ALLOW_ORIGINS=https://web-reader.zbpblog.cn
+CORS_ALLOW_ORIGINS=https://www.pagealong.com
 
 AUTH_DEV_BYPASS=true
 AUTH_CODE_HASH_SECRET=<random-long-secret>
@@ -346,8 +346,8 @@ d
 在宝塔面板中创建网站：
 
 ```text
-域名：web-reader.zbpblog.cn
-根目录：/www/wwwroot/web-reader.zbpblog.cn
+域名：www.pagealong.com
+根目录：/www/wwwroot/www.pagealong.com
 PHP版本：纯静态
 ```
 
@@ -362,7 +362,7 @@ HTTP 配置：
 ```nginx
 server {
     listen 80;
-    server_name web-reader.zbpblog.cn;
+    server_name www.pagealong.com;
 
     client_max_body_size 30m;
 
@@ -397,29 +397,29 @@ server {
 验证：
 
 ```bash
-curl http://web-reader.zbpblog.cn/api/health
-curl -I http://web-reader.zbpblog.cn
+curl http://www.pagealong.com/api/health
+curl -I http://www.pagealong.com
 ```
 
 ## 13. 配置 HTTPS
 
-在宝塔站点中为 `web-reader.zbpblog.cn` 申请 Let's Encrypt SSL。
+在宝塔站点中为 `www.pagealong.com` 申请 Let's Encrypt SSL。
 
 SSL 生效后，建议让 HTTP 自动跳转 HTTPS。Nginx HTTPS 配置可参考：
 
 ```nginx
 server {
     listen 80;
-    server_name web-reader.zbpblog.cn;
+    server_name www.pagealong.com;
     return 301 https://$host$request_uri;
 }
 
 server {
     listen 443 ssl http2;
-    server_name web-reader.zbpblog.cn;
+    server_name www.pagealong.com;
 
-    ssl_certificate     /www/server/panel/vhost/cert/web-reader.zbpblog.cn/fullchain.pem;
-    ssl_certificate_key /www/server/panel/vhost/cert/web-reader.zbpblog.cn/privkey.pem;
+    ssl_certificate     /www/server/panel/vhost/cert/www.pagealong.com/fullchain.pem;
+    ssl_certificate_key /www/server/panel/vhost/cert/www.pagealong.com/privkey.pem;
 
     client_max_body_size 30m;
 
@@ -454,14 +454,14 @@ server {
 HTTPS 验证：
 
 ```bash
-curl https://web-reader.zbpblog.cn/api/health
-curl -I https://web-reader.zbpblog.cn
+curl https://www.pagealong.com/api/health
+curl -I https://www.pagealong.com
 ```
 
 浏览器打开：
 
 ```text
-https://web-reader.zbpblog.cn
+https://www.pagealong.com
 ```
 
 ## 14. 设置开机自启
