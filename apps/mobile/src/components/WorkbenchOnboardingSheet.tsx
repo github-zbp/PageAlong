@@ -1,29 +1,26 @@
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { Feather } from "@expo/vector-icons";
-import { Pressable, Text, View } from "react-native";
+import { LayoutRectangle, Pressable, Text, useWindowDimensions, View } from "react-native";
 import type { WorkbenchCopy } from "@/lib/i18n";
 import { useTheme } from "@/providers/ThemeProvider";
 
 type IconName = ComponentProps<typeof Feather>["name"];
 
-const STEP_ICONS: IconName[] = ["plus", "clock", "book-open"];
+const STEP_ICONS: IconName[] = ["plus", "clock", "book-open", "layers"];
 
 type Props = {
   copy: WorkbenchCopy["onboarding"];
   visible: boolean;
+  anchorLayout?: LayoutRectangle | null;
   onComplete: () => void;
+  onStepChange?: (stepIndex: number) => void;
 };
 
-export function WorkbenchOnboardingSheet({ copy, onComplete, visible }: Props) {
+export function WorkbenchOnboardingSheet({ copy, anchorLayout, onComplete, onStepChange, visible }: Props) {
   const { tokens } = useTheme();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
   const transitionLockedRef = useRef(false);
-
-  useEffect(() => {
-    if (visible) {
-      setActiveIndex(0);
-    }
-  }, [visible]);
 
   if (!visible) {
     return null;
@@ -32,6 +29,22 @@ export function WorkbenchOnboardingSheet({ copy, onComplete, visible }: Props) {
   const currentStep = copy.steps[activeIndex] ?? copy.steps[0];
   const isLastStep = activeIndex >= copy.steps.length - 1;
   const iconName = STEP_ICONS[activeIndex] ?? STEP_ICONS[STEP_ICONS.length - 1];
+  const estimatedCardHeight = 300;
+  const cardTop = anchorLayout
+    ? anchorLayout.y + anchorLayout.height + 12 + estimatedCardHeight > windowHeight
+      ? Math.max(16, anchorLayout.y - estimatedCardHeight - 12)
+      : anchorLayout.y + anchorLayout.height + 12
+    : 120;
+  const hole = anchorLayout
+    ? {
+        x: Math.max(0, anchorLayout.x),
+        y: Math.max(0, anchorLayout.y),
+        width: Math.max(0, anchorLayout.width),
+        height: Math.max(0, anchorLayout.height)
+      }
+    : null;
+  const holeRight = hole ? Math.min(windowWidth, hole.x + hole.width) : 0;
+  const holeBottom = hole ? Math.min(windowHeight, hole.y + hole.height) : 0;
 
   const releaseTransitionLock = () => {
     setTimeout(() => {
@@ -49,37 +62,124 @@ export function WorkbenchOnboardingSheet({ copy, onComplete, visible }: Props) {
       releaseTransitionLock();
       return;
     }
-    setActiveIndex((current) => Math.min(current + 1, copy.steps.length - 1));
+    const next = Math.min(activeIndex + 1, copy.steps.length - 1);
+    setActiveIndex(next);
+    setTimeout(() => {
+      onStepChange?.(next);
+    }, 0);
     releaseTransitionLock();
   };
 
   return (
     <View
-      accessibilityLabel={copy.title}
-      accessibilityRole="dialog"
       style={{
         position: "absolute",
         top: 0,
         right: 0,
         bottom: 0,
         left: 0,
-        zIndex: 1000,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "rgba(0,0,0,0.48)",
-        padding: 16
+        zIndex: 1000
       }}
     >
+      {hole ? (
+        <>
+          <Pressable
+            accessibilityLabel="关闭引导遮罩"
+            onPress={onComplete}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: hole.y,
+              backgroundColor: "rgba(0,0,0,0.56)"
+            }}
+          />
+          <Pressable
+            accessibilityLabel="关闭引导遮罩"
+            onPress={onComplete}
+            style={{
+              position: "absolute",
+              top: hole.y,
+              left: 0,
+              width: hole.x,
+              height: hole.height,
+              backgroundColor: "rgba(0,0,0,0.56)"
+            }}
+          />
+          <Pressable
+            accessibilityLabel="关闭引导遮罩"
+            onPress={onComplete}
+            style={{
+              position: "absolute",
+              top: hole.y,
+              left: holeRight,
+              right: 0,
+              height: hole.height,
+              backgroundColor: "rgba(0,0,0,0.56)"
+            }}
+          />
+          <Pressable
+            accessibilityLabel="关闭引导遮罩"
+            onPress={onComplete}
+            style={{
+              position: "absolute",
+              top: holeBottom,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.56)"
+            }}
+          />
+          <View
+            testID={`workbench-guide-target-${currentStep.target}`}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: hole.y,
+              left: hole.x,
+              width: hole.width,
+              height: hole.height,
+              borderRadius: 14,
+              borderWidth: 3,
+              borderColor: tokens.highlight,
+              backgroundColor: "rgba(215, 180, 106, 0.08)",
+              shadowColor: tokens.highlight,
+              shadowOpacity: 0.45,
+              shadowRadius: 12,
+              shadowOffset: { width: 0, height: 0 }
+            }}
+          />
+        </>
+      ) : (
+        <Pressable
+          accessibilityLabel="关闭引导遮罩"
+          onPress={onComplete}
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            backgroundColor: "rgba(0,0,0,0.56)"
+          }}
+        />
+      )}
+
       <View
+        testID="workbench-guide-card"
+        accessibilityLabel={copy.title}
         style={{
-          width: "100%",
-          maxWidth: 420,
-          borderRadius: 20,
+          position: "absolute",
+          left: 16,
+          right: 16,
+          top: cardTop,
+          borderRadius: 18,
           borderWidth: 1,
           borderColor: tokens.border,
           backgroundColor: tokens.surface,
-          padding: 20,
-          gap: 16
+          padding: 18,
+          gap: 14
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>

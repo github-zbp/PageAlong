@@ -2,19 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Space_Grotesk } from "next/font/google";
 import { ConsoleShell } from "@/components/ConsoleShell";
 import { CourseDetailContent } from "@/components/CourseDetailContent";
 import { CourseOutlineDrawer, CourseOutlineSidebar } from "@/components/CourseOutlineSidebar";
 import { getCourse } from "@/lib/api";
 import { dictionaries, normalizeLocale } from "@/lib/i18n";
 import type { Course } from "@/lib/types";
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-  display: "swap"
-});
 
 export default function LocalizedCourseDetailPage({
   params
@@ -56,10 +49,8 @@ export default function LocalizedCourseDetailPage({
   if (!course) {
     return (
       <ConsoleShell locale={locale}>
-        <div className={spaceGrotesk.className}>
-          <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 text-sm text-[var(--pa-muted)]">
-            {error || dictionary.detail.loadingCourse}
-          </div>
+        <div className="rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4 text-sm text-[var(--pa-muted)]">
+          {error || dictionary.detail.loadingCourse}
         </div>
       </ConsoleShell>
     );
@@ -81,17 +72,15 @@ export default function LocalizedCourseDetailPage({
   return (
     <>
       <ConsoleShell locale={locale} sidebarOverride={outlineSidebar} sidebarOverrideLabel={dictionary.reading.outline}>
-        <div className={spaceGrotesk.className}>
-          <CourseDetailContent
-            autoplay={autoplay}
-            course={course}
-            isOutlineOpen={isOutlineOpen}
-            locale={locale}
-            onCourseChange={setCourse}
-            onReloadCourse={loadCourse}
-            onToggleOutline={() => setOutlineOpen((value) => !value)}
-          />
-        </div>
+        <CourseDetailContent
+          autoplay={autoplay}
+          course={course}
+          isOutlineOpen={isOutlineOpen}
+          locale={locale}
+          onCourseChange={setCourse}
+          onReloadCourse={loadCourse}
+          onToggleOutline={() => setOutlineOpen((value) => !value)}
+        />
       </ConsoleShell>
       <CourseOutlineDrawer
         closeLabel={dictionary.reading.closeOutline}

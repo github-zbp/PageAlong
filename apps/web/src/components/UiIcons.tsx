@@ -315,6 +315,32 @@ export function ImportIcon(props: IconProps) {
   );
 }
 
+export function GuideIcon(props: IconProps) {
+  return (
+    <BaseIcon {...props}>
+      <path
+        d="M12 5.8v12.4"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M5.5 7.4c0-.9.7-1.6 1.6-1.6h4.1c.8 0 1.5.3 2 .9.4.4.6.9.6 1.4V19c-.6-.4-1.3-.7-2.1-.7H7.1a1.6 1.6 0 0 1-1.6-1.6V7.4Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+      <path
+        d="M18.5 7.4c0-.9-.7-1.6-1.6-1.6h-4.1c-.8 0-1.5.3-2 .9-.4.4-.6.9-.6 1.4V19c.6-.4 1.3-.7 2.1-.7h4.6a1.6 1.6 0 0 0 1.6-1.6V7.4Z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="1.7"
+      />
+    </BaseIcon>
+  );
+}
+
 export function FeedbackIcon(props: IconProps) {
   return (
     <BaseIcon {...props}>

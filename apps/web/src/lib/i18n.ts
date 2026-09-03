@@ -64,6 +64,23 @@ export const dictionaries = {
       success: "已发送到管理员邮箱。",
       error: "发送失败，请稍后重试。"
     },
+    comments: {
+      title: "评论区",
+      intro: "欢迎分享你的使用体验、改进建议，或者聊聊你正在学习的内容。登录后即可发表评论。",
+      loginPrompt: "登录后可以发表评论，也可以继续浏览已有评论。",
+      loginCta: "登录后评论",
+      placeholder: "写下你的评论（最多 300 字）",
+      countLabel: "字",
+      submit: "发表评论",
+      submitting: "发布中",
+      loading: "正在加载评论...",
+      loadingMore: "加载中...",
+      loadMore: "加载更多评论",
+      empty: "还没有评论，欢迎留下第一条。",
+      error: "评论加载或发布失败，请稍后重试。",
+      success: "评论已发布。",
+      loginState: "正在确认登录状态..."
+    },
     shell: {
       collapseSidebar: "收起侧边栏",
       expandSidebar: "展开侧边栏"
@@ -143,23 +160,37 @@ export const dictionaries = {
         steps: [
           {
             key: "import",
+            target: "courseImport",
+            targetLabel: "课程导入",
             title: "先导入内容",
             body: "从课程导入开始，粘贴文本、输入网页链接，或者上传文件。"
           },
           {
             key: "continue",
+            target: "dashboard",
+            targetLabel: "工作台",
             title: "回到工作台继续",
             body: "有播放进度时，工作台会把继续学习卡片放在最前面。"
           },
           {
             key: "organize",
+            target: "fragmentedCourses",
+            targetLabel: "课程库",
             title: "在课程库里整理",
             body: "在课程库里整理、搜索、标星和分系列，导出和下载任务也都在这里。"
+          },
+          {
+            key: "series",
+            target: "seriesCourses",
+            targetLabel: "系列课程",
+            title: "系列课程怎么用",
+            body: "把同主题、同项目或连续更新的内容放进一个系列，适合按专题跟进、统一整理和回看。"
           }
         ],
         next: "下一步",
         complete: "完成",
-        stepLabel: (current: number, total: number) => `步骤 ${current}/${total}`
+        stepLabel: "步骤 {current}/{total}",
+        buttonLabel: "使用引导"
       },
       primaryAction: "课程导入",
       totalCourses: "课程",
@@ -507,6 +538,23 @@ export const dictionaries = {
       success: "Sent to the admin mailbox.",
       error: "Feedback could not be sent. Please try again later."
     },
+    comments: {
+      title: "Comments",
+      intro: "Share your experience, suggest an improvement, or tell us what you are learning. Sign in to post a comment.",
+      loginPrompt: "Sign in to post a comment. You can keep reading existing comments without an account.",
+      loginCta: "Sign in to comment",
+      placeholder: "Write a comment (up to 300 characters)",
+      countLabel: "characters",
+      submit: "Post comment",
+      submitting: "Posting",
+      loading: "Loading comments...",
+      loadingMore: "Loading...",
+      loadMore: "Load more comments",
+      empty: "No comments yet. Be the first to leave one.",
+      error: "Comments could not be loaded or posted. Please try again.",
+      success: "Comment posted.",
+      loginState: "Checking sign-in status..."
+    },
     shell: {
       collapseSidebar: "Collapse sidebar",
       expandSidebar: "Expand sidebar"
@@ -586,23 +634,37 @@ export const dictionaries = {
         steps: [
           {
             key: "import",
+            target: "courseImport",
+            targetLabel: "Course import",
             title: "Import something to listen to",
             body: "Start in course import, then paste text, enter a web page, or upload a file."
           },
           {
             key: "continue",
+            target: "dashboard",
+            targetLabel: "Dashboard",
             title: "Return here to keep going",
             body: "When a course has playback progress, the workbench puts it first."
           },
           {
             key: "organize",
+            target: "fragmentedCourses",
+            targetLabel: "Library",
             title: "Organize in the library",
             body: "Use the library to search, star, group into series, and manage downloads."
+          },
+          {
+            key: "series",
+            target: "seriesCourses",
+            targetLabel: "Series courses",
+            title: "How series courses work",
+            body: "Group related or ongoing content into a series when you want a topic to stay together, update over time, and be easy to revisit."
           }
         ],
         next: "Next",
         complete: "Done",
-        stepLabel: (current: number, total: number) => `Step ${current}/${total}`
+        stepLabel: "Step {current}/{total}",
+        buttonLabel: "Guide"
       },
       primaryAction: "Course import",
       totalCourses: "Courses",

@@ -271,6 +271,21 @@ if ! grep -F "restart" "${TMP_DIR}/prod-apps.log" >/dev/null; then
   exit 1
 fi
 
+if ! grep -F "Application entry:" <<<"${output}" >/dev/null; then
+  printf 'Expected bootstrap-prod to print the application entry.\n' >&2
+  exit 1
+fi
+
+if ! grep -F "Web: http://127.0.0.1:3000" <<<"${output}" >/dev/null; then
+  printf 'Expected bootstrap-prod to print the Web application URL.\n' >&2
+  exit 1
+fi
+
+if ! grep -F "API health: http://127.0.0.1:8000/health" <<<"${output}" >/dev/null; then
+  printf 'Expected bootstrap-prod to print the API health URL.\n' >&2
+  exit 1
+fi
+
 MISSING_ROOT="${TMP_DIR}/web_reader_missing"
 MISSING_BIN="${TMP_DIR}/bin-missing"
 cp -R "${FAKE_ROOT}" "${MISSING_ROOT}"
@@ -397,6 +412,60 @@ fi
 
 if ! grep -F "python3.12" "${TMP_DIR}/apt-get-missing.log" >/dev/null; then
   printf 'Expected bootstrap-prod to install Python 3.12 when it is missing.\n' >&2
+  exit 1
+fi
+
+BREW_ROOT="${TMP_DIR}/web_reader_brew"
+BREW_BIN="${TMP_DIR}/bin-brew"
+cp -R "${FAKE_ROOT}" "${BREW_ROOT}"
+rm -f "${BREW_ROOT}/.env"
+rm -rf "${BREW_BIN}"
+cp -R "${FAKE_BIN}" "${BREW_BIN}"
+rm -f "${BREW_BIN}/apt-get" "${BREW_BIN}/tmux" "${BREW_BIN}/ffmpeg"
+
+cat >"${BREW_BIN}/brew" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+printf 'brew %s\n' "$*" >> "${BREW_CALL_LOG:?}"
+exit 0
+EOF
+chmod +x "${BREW_BIN}/brew"
+
+set +e
+brew_output="$(
+  PATH="${BREW_BIN}" \
+  PROJECT_ROOT="${BREW_ROOT}" \
+  MAKE_CALL_LOG="${TMP_DIR}/make-brew.log" \
+  MAKE_ENV_LOG="${TMP_DIR}/make-env-brew.log" \
+  PROD_APPS_CALL_LOG="${TMP_DIR}/prod-apps-brew.log" \
+  SUDO_CALL_LOG="${TMP_DIR}/sudo-brew.log" \
+  BREW_CALL_LOG="${TMP_DIR}/brew.log" \
+  DOCKER_CALL_LOG="${TMP_DIR}/docker-brew.log" \
+  "${PROJECT_ROOT}/scripts/bootstrap-prod.sh" <<<'admin@example.com
+Boot1234
+' 2>&1
+)"
+brew_status="$?"
+set -e
+
+if [[ "${brew_status}" -ne 0 ]]; then
+  printf 'bootstrap-prod brew flow failed unexpectedly.\n\nOutput:\n%s\n' "${brew_output}" >&2
+  exit 1
+fi
+
+if ! grep -F "brew install" "${TMP_DIR}/brew.log" >/dev/null; then
+  printf 'Expected bootstrap-prod to install missing host packages with brew.\n' >&2
+  exit 1
+fi
+
+if ! grep -F "tmux" "${TMP_DIR}/brew.log" >/dev/null; then
+  printf 'Expected bootstrap-prod to request tmux from brew.\n' >&2
+  exit 1
+fi
+
+if ! grep -F "ffmpeg" "${TMP_DIR}/brew.log" >/dev/null; then
+  printf 'Expected bootstrap-prod to request ffmpeg from brew.\n' >&2
   exit 1
 fi
 

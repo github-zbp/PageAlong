@@ -27,6 +27,7 @@ from app.models.file_import import (
     FileImportSourceMode,
 )
 from app.models.playback_progress import PlaybackProgress
+from app.models.story_comment import StoryComment
 from app.models.tag import CourseTag, Tag
 from app.models.tts import TTSSegment, TTSQuotaPeriod, TTSUsageEvent
 from app.models.user import AuthEvent, AuthEventType, AuthSession, User, UserPreference, UserRole, UserStatus
@@ -62,6 +63,7 @@ __all__ = [
     "ResourceStatus",
     "ResourceVariant",
     "PlaybackProgress",
+    "StoryComment",
     "Tag",
     "Sentence",
     "SourceType",

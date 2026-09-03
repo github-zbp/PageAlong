@@ -1,15 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { act, fireEvent, render } from "@testing-library/react-native";
 import { Pressable } from "react-native";
 import * as api from "@/lib/api";
 import CourseListRow, { COURSE_ROW_HEIGHT } from "@/components/CourseListRow";
 import { formatCourseMeta, formatUpdatedDate } from "@/lib/library";
 import { setLocalePreference } from "@/lib/locale";
-import {
-  loadWorkbenchOnboardingCompleted,
-  resetWorkbenchOnboardingCompletedForTests
-} from "@/lib/onboarding";
 import WorkbenchScreen from "../app/(tabs)/workbench";
 
 jest.mock("expo-router", () => ({
@@ -30,7 +25,7 @@ jest.mock("@react-native-async-storage/async-storage", () => {
   return {
     __esModule: true,
     default: {
-      getItem: jest.fn(async (key: string) => store.get(key) ?? null),
+      getItem: jest.fn(async (key: string) => store.get(key) ?? "1"),
       setItem: jest.fn(async (key: string, value: string) => {
         store.set(key, value);
       }),
@@ -127,6 +122,55 @@ it("renders continue learning before recent courses", async () => {
   expect(listCoursesPage).toHaveBeenCalledWith({ sort: "recent", pageSize: 6 });
 });
 
+it("opens the anchored onboarding guide from the workbench", async () => {
+  const listCoursesPage = api.listCoursesPage as jest.MockedFunction<typeof api.listCoursesPage>;
+  listCoursesPage.mockResolvedValueOnce({
+    items: [courseFixture({ id: "a", title: "正在学习的课程", last_playback_position_seconds: 60, duration_seconds: 300 })],
+    pagination: { page: 1, page_size: 6, total: 1, total_pages: 1, has_previous: false, has_next: false }
+  });
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  const screen = await render(
+    <QueryClientProvider client={queryClient}>
+      <WorkbenchScreen />
+    </QueryClientProvider>
+  );
+
+  expect(screen.queryByRole("button", { name: "课程库" })).toBeNull();
+
+  const pressNext = async () => {
+    await act(async () => {
+      fireEvent.press(screen.getByRole("button", { name: "下一步" }));
+      await new Promise((resolve) => setTimeout(resolve, 80));
+    });
+  };
+
+  await act(async () => {
+    fireEvent.press(screen.getByRole("button", { name: "使用引导" }));
+  });
+
+  await screen.findByText("先导入内容");
+
+  await pressNext();
+  await screen.findByText("回到工作台继续");
+
+  await pressNext();
+  await screen.findByText("去课程库整理");
+
+  await pressNext();
+  await screen.findByText("了解系列课程");
+
+  await act(async () => {
+    fireEvent.press(screen.getByRole("button", { name: "完成" }));
+  });
+
+  await act(async () => {
+    fireEvent.press(screen.getByRole("button", { name: "使用引导" }));
+  });
+
+  expect(await screen.findByText("先导入内容")).toBeTruthy();
+});
+
 it("keeps row actions from navigating the course", async () => {
   const onPress = jest.fn();
   const onMorePress = jest.fn();
@@ -161,49 +205,6 @@ it("keeps course rows at a fixed height", async () => {
   expect(COURSE_ROW_HEIGHT).toBe(96);
 });
 
-it("shows the onboarding steps on the first workbench visit and keeps them dismissed after completion", async () => {
-  await AsyncStorage.clear();
-  resetWorkbenchOnboardingCompletedForTests();
-  expect(await loadWorkbenchOnboardingCompleted()).toBe(false);
-  const listCoursesPage = api.listCoursesPage as jest.MockedFunction<typeof api.listCoursesPage>;
-  listCoursesPage.mockResolvedValue({
-    items: [],
-    pagination: { page: 1, page_size: 6, total: 0, total_pages: 1, has_previous: false, has_next: false }
-  });
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  const screen = await render(
-    <QueryClientProvider client={queryClient}>
-      <WorkbenchScreen />
-    </QueryClientProvider>
-  );
-
-  expect(screen.getByText("先导入内容")).toBeTruthy();
-  fireEvent.press(screen.getByText("下一步"));
-  await waitFor(() => {
-    expect(screen.getByText("回到工作台继续")).toBeTruthy();
-  });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  fireEvent.press(screen.getByText("下一步"));
-  await waitFor(() => {
-    expect(screen.getByText("去课程库整理")).toBeTruthy();
-  });
-  await new Promise((resolve) => setTimeout(resolve, 100));
-  fireEvent.press(screen.getByRole("button", { name: "完成" }));
-
-  await waitFor(async () => {
-    expect(await AsyncStorage.getItem("pagealong.onboarding.workbench.v1")).toBe("1");
-  });
-
-  screen.unmount();
-  const nextScreen = await render(
-    <QueryClientProvider client={queryClient}>
-      <WorkbenchScreen />
-    </QueryClientProvider>
-  );
-  expect(nextScreen.queryByText("先导入内容")).toBeNull();
-  listCoursesPage.mockReset();
-});
 
 it("formats workbench metadata in English", async () => {
   await setLocalePreference("en");

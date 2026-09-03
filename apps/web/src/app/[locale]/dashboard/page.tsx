@@ -6,7 +6,6 @@ import { ConsoleShell } from "@/components/ConsoleShell";
 import { CourseCard } from "@/components/CourseCard";
 import { DashboardAnnouncements } from "@/components/DashboardAnnouncements";
 import { PageHeader } from "@/components/PageHeader";
-import { OnboardingTour } from "@/components/OnboardingTour";
 import { SummaryCard } from "@/components/SummaryCard";
 import { deleteCourse, listCourses, recordDashboardActivity } from "@/lib/api";
 import { dictionaries, normalizeLocale } from "@/lib/i18n";
@@ -17,7 +16,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   const locale = normalizeLocale(params.locale);
   const dictionary = dictionaries[locale];
   const [courses, setCourses] = useState<CourseSummary[]>([]);
-  const [showOnboarding, setShowOnboarding] = useState(() => !hasCompletedDashboardOnboarding());
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   async function refresh() {
     setCourses(await listCourses());
@@ -33,9 +32,27 @@ export default function DashboardPage({ params }: { params: { locale: string } }
     void refresh();
   }, [locale]);
 
+  useEffect(() => {
+    setShowOnboarding(!hasCompletedDashboardOnboarding());
+  }, []);
+
   const textReadyCount = courses.filter((course) => course.status === "text_ready").length;
   const resumableCourses = courses.filter((course) => course.last_playback_position_seconds > 0);
   const continueCourse = resumableCourses[0];
+  const sidebarGuide = {
+    initialOpen: showOnboarding,
+    onComplete: () => {
+      markDashboardOnboardingCompleted();
+    },
+    title: dictionary.dashboard.onboarding.title,
+    subtitle: dictionary.dashboard.onboarding.subtitle,
+    steps: dictionary.dashboard.onboarding.steps,
+    next: dictionary.dashboard.onboarding.next,
+    complete: dictionary.dashboard.onboarding.complete,
+    stepLabel: dictionary.dashboard.onboarding.stepLabel,
+    close: dictionary.common.close,
+    buttonLabel: dictionary.dashboard.onboarding.buttonLabel
+  };
   const nextStep = useMemo(() => {
     if (continueCourse) {
       return dictionary.dashboard.progressNext;
@@ -47,7 +64,7 @@ export default function DashboardPage({ params }: { params: { locale: string } }
   }, [continueCourse, dictionary.dashboard, textReadyCount]);
 
   return (
-    <ConsoleShell locale={locale}>
+    <ConsoleShell locale={locale} sidebarGuide={sidebarGuide}>
       <PageHeader
         title={dictionary.dashboard.title}
         subtitle={dictionary.dashboard.subtitle}
@@ -62,15 +79,6 @@ export default function DashboardPage({ params }: { params: { locale: string } }
       />
 
       <DashboardAnnouncements locale={locale} />
-
-      <OnboardingTour
-        copy={dictionary.dashboard.onboarding}
-        open={showOnboarding}
-        onComplete={() => {
-          markDashboardOnboardingCompleted();
-          setShowOnboarding(false);
-        }}
-      />
 
       <section className="mt-5 grid gap-3 sm:grid-cols-3">
         <SummaryCard label={dictionary.dashboard.totalCourses} value={courses.length} />

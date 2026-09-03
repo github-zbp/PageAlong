@@ -19,6 +19,7 @@ import type {
   FeedbackCategory,
   PaginatedList,
   Pagination,
+  StoryComment,
   TagRead
 } from "./types";
 import type { ThemePreferences } from "./theme-preferences";
@@ -777,6 +778,33 @@ export async function submitFeedback(input: {
       })
     },
     "Failed to send feedback"
+  );
+}
+
+export async function listStoryCommentsPage(input: {
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<PaginatedList<StoryComment>> {
+  const page = input.page ?? 1;
+  const pageSize = input.pageSize ?? 20;
+  return fetchPaginatedJson<StoryComment>(
+    `/story/comments${queryString({ page, page_size: pageSize })}`,
+    page,
+    pageSize,
+    "Failed to load comments",
+    false
+  );
+}
+
+export async function createStoryComment(content: string): Promise<StoryComment> {
+  return apiJson<StoryComment>(
+    "/story/comments",
+    {
+      method: "POST",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ content })
+    },
+    "Failed to post comment"
   );
 }
 

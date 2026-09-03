@@ -91,3 +91,42 @@ def test_feedback_route_returns_503_when_delivery_fails(client, monkeypatch):
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Feedback delivery is temporarily unavailable"}
+
+
+def test_feedback_route_is_rate_limited_after_three_posts(client, monkeypatch):
+    from app.api.routes import feedback
+    from app.services.email_delivery import RecordingEmailSender
+    from app.services.feedback_service import FeedbackService
+
+    user = make_user()
+    sender = RecordingEmailSender()
+    service = FeedbackService(email_sender=sender)
+    monkeypatch.setattr(feedback, "get_feedback_service", lambda: service)
+    app.dependency_overrides[get_current_user] = lambda: user
+    try:
+        for index in range(3):
+            response = client.post(
+                "/feedback",
+                json={
+                    "category": "bug",
+                    "summary": f"Summary {index + 1}",
+                    "message": "Rate limit check.",
+                    "page_path": "/zh/dashboard",
+                },
+            )
+            assert response.status_code == 204
+
+        response = client.post(
+            "/feedback",
+            json={
+                "category": "bug",
+                "summary": "Summary 4",
+                "message": "Rate limit check.",
+                "page_path": "/zh/dashboard",
+            },
+        )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert response.status_code == 429
+    assert response.json() == {"detail": "Too many requests"}

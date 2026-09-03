@@ -7,8 +7,11 @@ from app.models.user import User
 from app.schemas.feedback import FeedbackSubmitRequest
 from app.services.email_delivery import EmailDeliveryError
 from app.services.feedback_service import get_feedback_service
+from app.services.rate_limit import RateLimitExceeded, enforce_rate_limit
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
+FEEDBACK_RATE_LIMIT = 3
+FEEDBACK_RATE_LIMIT_WINDOW_SECONDS = 60
 
 
 def client_ip(request: Request) -> str:
@@ -26,6 +29,12 @@ def submit_feedback(
     current_user: User = Depends(get_current_user),
 ) -> Response:
     try:
+        enforce_rate_limit(
+            scope="feedback",
+            subject=current_user.id,
+            limit=FEEDBACK_RATE_LIMIT,
+            window_seconds=FEEDBACK_RATE_LIMIT_WINDOW_SECONDS,
+        )
         get_feedback_service().submit_feedback(
             user=current_user,
             category=payload.category,
@@ -35,6 +44,12 @@ def submit_feedback(
             user_agent=user_agent(request),
             ip_address=client_ip(request),
         )
+    except RateLimitExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many requests",
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+        ) from exc
     except EmailDeliveryError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

@@ -176,6 +176,13 @@ export type WorkbenchCopy = {
   action: string;
   continueLearning: string;
   recentReading: string;
+  guideButtonLabel: string;
+  libraryPanelTitle: string;
+  libraryPanelBody: string;
+  libraryPanelAction: string;
+  seriesPanelTitle: string;
+  seriesPanelBody: string;
+  seriesPanelAction: string;
   signedInPrefix: string;
   signedOutBody: string;
   recentBody: string;
@@ -187,6 +194,7 @@ type OnboardingCopy = {
   subtitle: string;
   steps: Array<{
     key: string;
+    target: string;
     title: string;
     body: string;
   }>;
@@ -751,27 +759,43 @@ export function getWorkbenchCopy(locale: LocalePreference): WorkbenchCopy {
       action: "Import",
       continueLearning: "Continue learning",
       recentReading: "Recent reading",
+      guideButtonLabel: "Guide",
+      libraryPanelTitle: "Library",
+      libraryPanelBody: "Search, star, and organize courses into series from one place.",
+      libraryPanelAction: "Open library",
+      seriesPanelTitle: "Series courses",
+      seriesPanelBody: "Group related courses together when you want to learn them as a set.",
+      seriesPanelAction: "Open library",
       signedInPrefix: "Current account: ",
       signedOutBody: "The session will reappear once the login flow is connected later.",
       recentBody: "The course list will be connected in a later stage.",
       onboarding: {
-        title: "Get started in 3 steps",
+        title: "Get started in 4 steps",
         subtitle: "Follow this path to make your first course.",
         steps: [
           {
             key: "import",
+            target: "import",
             title: "Import something to listen to",
             body: "Use course import to paste text, open a web page, or upload a file."
           },
           {
             key: "continue",
+            target: "continue",
             title: "Return here to keep going",
             body: "When playback starts, the Continue learning card brings you back to the last place."
           },
           {
-            key: "organize",
+            key: "library",
+            target: "library",
             title: "Organize in the library",
             body: "Search, star, group into series, and manage downloads from the library."
+          },
+          {
+            key: "series",
+            target: "series",
+            title: "Use series courses",
+            body: "Put related courses into a series when you want them to be learned in order."
           }
         ],
         next: "Next",
@@ -786,31 +810,47 @@ export function getWorkbenchCopy(locale: LocalePreference): WorkbenchCopy {
     action: "导入",
     continueLearning: "继续学习",
     recentReading: "最近阅读",
+    guideButtonLabel: "使用引导",
+    libraryPanelTitle: "课程库",
+    libraryPanelBody: "在一个地方搜索、标星，并把课程整理成系列。",
+    libraryPanelAction: "打开课程库",
+    seriesPanelTitle: "系列课程",
+    seriesPanelBody: "把相关课程放在一起，适合按顺序连着学习。",
+    seriesPanelAction: "打开课程库",
     signedInPrefix: "当前账号：",
     signedOutBody: "会话会在后续登录流程接入后恢复。",
     recentBody: "这里会在后续 spec 中接入课程列表。",
     onboarding: {
-      title: "先认识 3 个入口",
+      title: "先认识 4 个入口",
       subtitle: "按这个顺序开始使用 PageAlong。",
       steps: [
         {
           key: "import",
+          target: "import",
           title: "先导入内容",
           body: "点右上角“导入”或直接粘贴网页链接，把文章、笔记或文件变成课程。"
         },
         {
           key: "continue",
+          target: "continue",
           title: "回到工作台继续",
           body: "有进度时，从“继续学习”卡片接着听，播放位置会自动保存。"
         },
-        {
-          key: "organize",
-          title: "去课程库整理",
-          body: "在课程库里搜索、标星、分系列，下载和阅读偏好也在这里。"
-        }
-      ],
-      next: "下一步",
-      complete: "完成",
+          {
+            key: "library",
+            target: "library",
+            title: "去课程库整理",
+            body: "在课程库里搜索、标星、分系列，下载和阅读偏好也在这里。"
+          },
+          {
+            key: "series",
+            target: "series",
+            title: "了解系列课程",
+            body: "把相关课程放进系列，适合按顺序学习同一个主题。"
+          }
+        ],
+        next: "下一步",
+        complete: "完成",
       stepLabel: (current, total) => `步骤 ${current}/${total}`
     }
   };

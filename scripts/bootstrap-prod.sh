@@ -108,6 +108,28 @@ is_loopback_host() {
   esac
 }
 
+browser_host() {
+  case "$1" in
+    ""|0.0.0.0) printf '%s' "127.0.0.1" ;;
+    *) printf '%s' "$1" ;;
+  esac
+}
+
+print_access_info() {
+  local web_host web_port api_host api_port
+
+  web_host="$(browser_host "${WEB_HOST:-127.0.0.1}")"
+  web_port="${WEB_PORT:-3000}"
+  api_host="$(browser_host "${API_HOST:-127.0.0.1}")"
+  api_port="${API_PORT:-8000}"
+
+  cat <<EOF
+Application entry:
+  Web: http://${web_host}:${web_port}
+  API health: http://${api_host}:${api_port}/health
+EOF
+}
+
 url_host() {
   local url="$1"
   local host=""
@@ -177,58 +199,112 @@ check_required_commands() {
   fi
 }
 
+package_manager_command() {
+  if command_exists apt-get; then
+    printf '%s' "apt-get"
+    return 0
+  fi
+
+  if command_exists brew; then
+    printf '%s' "brew"
+    return 0
+  fi
+
+  return 1
+}
+
 install_missing_commands() {
   local missing=("$@")
   local packages=()
+  local package_manager
 
-  if ! command_exists apt-get; then
-    die "Missing host commands: ${missing[*]}. Install them manually or use a Debian/Ubuntu host with apt-get."
+  if ! package_manager="$(package_manager_command)"; then
+    die "Missing host commands: ${missing[*]}. Install them manually or use a Debian/Ubuntu host with apt-get or macOS/Homebrew."
   fi
 
   log "installing missing host dependencies: ${missing[*]}"
 
-  case " ${missing[*]} " in
-    *" git "*) packages+=("git") ;;
-  esac
-  case " ${missing[*]} " in
-    *" make "*) packages+=("make") ;;
-  esac
-  case " ${missing[*]} " in
-    *" curl "*) packages+=("curl") ;;
-  esac
-  case " ${missing[*]} " in
-    *" tmux "*) packages+=("tmux") ;;
-  esac
-  case " ${missing[*]} " in
-    *" ffmpeg "*) packages+=("ffmpeg") ;;
-  esac
-  case " ${missing[*]} " in
-    *" lsof "*) packages+=("lsof") ;;
-  esac
-  case " ${missing[*]} " in
-    *" docker "*) packages+=("docker.io" "docker-compose-plugin") ;;
-  esac
-  case " ${missing[*]} " in
-    *" node "*) packages+=("nodejs") ;;
-  esac
-  case " ${missing[*]} " in
-    *" npm "*) packages+=("npm") ;;
-  esac
-  case " ${missing[*]} " in
-    *" python3.12 "*) packages+=("python3.12" "python3.12-venv" "python3.12-dev" "python3-pip") ;;
-  esac
+  case "$package_manager" in
+    apt-get)
+      case " ${missing[*]} " in
+        *" git "*) packages+=("git") ;;
+      esac
+      case " ${missing[*]} " in
+        *" make "*) packages+=("make") ;;
+      esac
+      case " ${missing[*]} " in
+        *" curl "*) packages+=("curl") ;;
+      esac
+      case " ${missing[*]} " in
+        *" tmux "*) packages+=("tmux") ;;
+      esac
+      case " ${missing[*]} " in
+        *" ffmpeg "*) packages+=("ffmpeg") ;;
+      esac
+      case " ${missing[*]} " in
+        *" lsof "*) packages+=("lsof") ;;
+      esac
+      case " ${missing[*]} " in
+        *" docker "*) packages+=("docker.io" "docker-compose-plugin") ;;
+      esac
+      case " ${missing[*]} " in
+        *" node "*) packages+=("nodejs") ;;
+      esac
+      case " ${missing[*]} " in
+        *" npm "*) packages+=("npm") ;;
+      esac
+      case " ${missing[*]} " in
+        *" python3.12 "*) packages+=("python3.12" "python3.12-venv" "python3.12-dev" "python3-pip") ;;
+      esac
 
-  if [[ "${#packages[@]}" -eq 0 ]]; then
-    packages=("git" "make" "curl" "tmux" "ffmpeg" "lsof" "docker.io" "docker-compose-plugin" "nodejs" "npm" "python3.12" "python3.12-venv" "python3.12-dev" "python3-pip")
-  fi
+      if [[ "${#packages[@]}" -eq 0 ]]; then
+        packages=("git" "make" "curl" "tmux" "ffmpeg" "lsof" "docker.io" "docker-compose-plugin" "nodejs" "npm" "python3.12" "python3.12-venv" "python3.12-dev" "python3-pip")
+      fi
 
-  if command_exists sudo && [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    sudo apt-get update
-    sudo apt-get install -y "${packages[@]}"
-  else
-    apt-get update
-    apt-get install -y "${packages[@]}"
-  fi
+      if command_exists sudo && [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+        sudo apt-get update
+        sudo apt-get install -y "${packages[@]}"
+      else
+        apt-get update
+        apt-get install -y "${packages[@]}"
+      fi
+      ;;
+    brew)
+      case " ${missing[*]} " in
+        *" git "*) packages+=("git") ;;
+      esac
+      case " ${missing[*]} " in
+        *" make "*) packages+=("make") ;;
+      esac
+      case " ${missing[*]} " in
+        *" curl "*) packages+=("curl") ;;
+      esac
+      case " ${missing[*]} " in
+        *" tmux "*) packages+=("tmux") ;;
+      esac
+      case " ${missing[*]} " in
+        *" ffmpeg "*) packages+=("ffmpeg") ;;
+      esac
+      case " ${missing[*]} " in
+        *" lsof "*) packages+=("lsof") ;;
+      esac
+      case " ${missing[*]} " in
+        *" docker "*) packages+=("docker") ;;
+      esac
+      case " ${missing[*]} " in
+        *" node "*|*" npm "*) packages+=("node") ;;
+      esac
+      case " ${missing[*]} " in
+        *" python3.12 "*) packages+=("python@3.12") ;;
+      esac
+
+      if [[ "${#packages[@]}" -eq 0 ]]; then
+        packages=("git" "make" "curl" "tmux" "ffmpeg" "lsof" "docker" "node" "python@3.12")
+      fi
+
+      brew install "${packages[@]}"
+      ;;
+  esac
 }
 
 ensure_docker_ready() {
@@ -275,6 +351,7 @@ main() {
   log "restarting services with scripts/prod-apps.sh restart"
   (cd "$PROJECT_ROOT" && scripts/prod-apps.sh restart)
 
+  print_access_info
   log "bootstrap complete"
 }
 

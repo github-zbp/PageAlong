@@ -12,7 +12,18 @@ test("marketing pages and policy pages are wired up in both locales", async ({ p
 
   await page.getByRole("link", { name: "产品故事" }).click();
   await expect(page).toHaveURL(/\/story$/);
-  await expect(page.getByRole("heading", { name: "这一页还在准备中" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我是谁" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "为什么开发这款产品" })).toBeVisible();
+  await expect(page.getByAltText("添加阿沛个人微信的二维码")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "评论区" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "登录后评论" })).toBeVisible();
+
+  await page.goto("/story?lang=en");
+  await expect(page.getByRole("heading", { name: "Who I am" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Why I built this product" })).toBeVisible();
+  await expect(page.getByAltText("QR code to add Apei on WeChat")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Comments" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Sign in to comment" })).toBeVisible();
 
   await page.goto("/guide?lang=en");
   await expect(page.getByRole("heading", { name: "This page is still being prepared" })).toBeVisible();

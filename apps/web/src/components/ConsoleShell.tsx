@@ -9,6 +9,7 @@ import { readConsoleShellPreferences, updateConsoleShellPreferences } from "@/li
 import type { AuthUser } from "@/lib/types";
 import { writeThemePreferences } from "@/lib/theme-preferences";
 import { BrandMark } from "./BrandMark";
+import { DashboardGuideOverlay, type DashboardGuideConfig } from "./OnboardingTour";
 import { FeedbackPanel } from "./FeedbackPanel";
 import { ImpersonationBanner } from "./ImpersonationBanner";
 import { CourseSearchBox } from "./CourseSearchBox";
@@ -16,6 +17,7 @@ import {
   ArrowRightIcon,
   ClipboardIcon,
   DashboardIcon,
+  GuideIcon,
   FeedbackIcon,
   GlobeIcon,
   ImportIcon,
@@ -50,6 +52,8 @@ function getAlternatePath(pathname: string, locale: Locale): string {
 function SidebarLink({
   active,
   collapsed,
+  guideActive,
+  guideTarget,
   icon,
   href,
   label,
@@ -57,6 +61,8 @@ function SidebarLink({
 }: {
   active: boolean;
   collapsed: boolean;
+  guideActive?: boolean;
+  guideTarget?: string;
   icon: ReactNode;
   href: string;
   label: string;
@@ -78,10 +84,13 @@ function SidebarLink({
         collapsed
           ? "flex h-10 w-10 items-center justify-center rounded-md border text-sm font-semibold"
           : "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium",
-        activeClass
+        activeClass,
+        guideActive ? "ring-2 ring-[var(--pa-green)] ring-offset-2 ring-offset-[var(--pa-muted-surface)]" : ""
       ].join(" ")}
       href={href}
       onClick={onClick}
+      data-guide-active={guideActive ? "true" : undefined}
+      data-guide-target={guideTarget}
       title={label}
     >
       {collapsed ? (
@@ -137,15 +146,53 @@ function SidebarAction({
   );
 }
 
+function GuideTriggerButton({
+  collapsed,
+  icon,
+  label,
+  onClick
+}: {
+  collapsed: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={[
+        "pa-focus transition",
+        collapsed
+          ? "flex h-10 w-10 items-center justify-center rounded-md border border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] text-[var(--pa-green)] hover:border-[var(--pa-green)]"
+          : "flex w-full items-center gap-2 rounded-md border border-[var(--pa-green-soft)] bg-[var(--pa-green-soft)] px-3 py-2 text-sm font-medium text-[var(--pa-ink)] hover:border-[var(--pa-green)] hover:text-[var(--pa-green)]"
+      ].join(" ")}
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      {collapsed ? (
+        <span className="inline-flex h-4 w-4 items-center justify-center">{icon}</span>
+      ) : (
+        <>
+          <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
+          <span className="truncate">{label}</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 export function ConsoleShell({
   children,
   locale,
   sidebarOverride,
+  sidebarGuide,
   sidebarOverrideLabel = "Primary"
 }: {
   locale: Locale;
   children: ReactNode;
   sidebarOverride?: ReactNode;
+  sidebarGuide?: DashboardGuideConfig;
   sidebarOverrideLabel?: string;
 }) {
   const pathname = usePathname();
@@ -158,6 +205,9 @@ export function ConsoleShell({
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [isSidebarCollapsed, setSidebarCollapsed] = useState(() => readConsoleShellPreferences().sidebarCollapsed);
   const [isFeedbackOpen, setFeedbackOpen] = useState(false);
+  const [isGuideOpen, setGuideOpen] = useState(() => sidebarGuide?.initialOpen ?? false);
+  const [guideSessionKey, setGuideSessionKey] = useState(0);
+  const [guideActiveTarget, setGuideActiveTarget] = useState<string | null>(null);
 
   useEffect(() => {
     updateConsoleShellPreferences({ sidebarCollapsed: isSidebarCollapsed });
@@ -218,6 +268,24 @@ export function ConsoleShell({
     };
   }, [currentUser]);
 
+  useEffect(() => {
+    if (sidebarGuide?.initialOpen) {
+      setGuideSessionKey((value) => value + 1);
+      setGuideOpen(true);
+    }
+  }, [sidebarGuide?.initialOpen]);
+
+  useEffect(() => {
+    if (!isGuideOpen) {
+      return;
+    }
+
+    setSidebarCollapsed(false);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setMobileNavOpen(true);
+    }
+  }, [isGuideOpen]);
+
   function isActive(href: string, activePaths?: readonly string[]) {
     const paths = activePaths ?? [href];
     return paths.some((path) => {
@@ -229,6 +297,31 @@ export function ConsoleShell({
   function openFeedbackPanel() {
     setFeedbackOpen(true);
     setMobileNavOpen(false);
+  }
+
+  function openGuide() {
+    if (!sidebarGuide) {
+      return;
+    }
+
+    setGuideActiveTarget(null);
+    setSidebarCollapsed(false);
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setMobileNavOpen(true);
+    }
+    setGuideSessionKey((value) => value + 1);
+    setGuideOpen(true);
+  }
+
+  function closeGuide() {
+    setGuideOpen(false);
+    setGuideActiveTarget(null);
+  }
+
+  function completeGuide() {
+    sidebarGuide?.onComplete();
+    setGuideOpen(false);
+    setGuideActiveTarget(null);
   }
 
   async function signOut() {
@@ -309,8 +402,11 @@ export function ConsoleShell({
                   "block rounded-md px-3 py-2 text-sm font-medium transition",
                   isActive("dashboard")
                     ? "bg-[var(--pa-green)] text-white"
-                    : "text-[var(--pa-ink)] hover:bg-[var(--pa-green-soft)] hover:text-[var(--pa-green)]"
+                    : "text-[var(--pa-ink)] hover:bg-[var(--pa-green-soft)] hover:text-[var(--pa-green)]",
+                  guideActiveTarget === "dashboard" ? "ring-2 ring-[var(--pa-green)] ring-offset-2 ring-offset-[var(--pa-surface)]" : ""
                 ].join(" ")}
+                data-guide-active={guideActiveTarget === "dashboard" ? "true" : undefined}
+                data-guide-target="dashboard"
               >
                 {dictionary.nav.dashboard}
               </Link>
@@ -330,8 +426,11 @@ export function ConsoleShell({
                           "block rounded-md px-3 py-2 text-sm font-medium transition",
                           active
                             ? "bg-[var(--pa-green)] text-white"
-                            : "text-[var(--pa-ink)] hover:bg-[var(--pa-green-soft)] hover:text-[var(--pa-green)]"
+                            : "text-[var(--pa-ink)] hover:bg-[var(--pa-green-soft)] hover:text-[var(--pa-green)]",
+                          guideActiveTarget === item.key ? "ring-2 ring-[var(--pa-green)] ring-offset-2 ring-offset-[var(--pa-surface)]" : ""
                         ].join(" ")}
+                        data-guide-active={guideActiveTarget === item.key ? "true" : undefined}
+                        data-guide-target={item.key}
                       >
                         {dictionary.nav[item.key]}
                       </Link>
@@ -386,6 +485,16 @@ export function ConsoleShell({
                   onClick={openFeedbackPanel}
                 />
               </div>
+              {sidebarGuide ? (
+                <div className="pt-2">
+                  <GuideTriggerButton
+                    collapsed={false}
+                    icon={<GuideIcon className="h-4 w-4" />}
+                    label={sidebarGuide.buttonLabel}
+                    onClick={openGuide}
+                  />
+                </div>
+              ) : null}
             </nav>
           </div>
         </div>
@@ -419,6 +528,17 @@ export function ConsoleShell({
           </button>
 
           <div className={isSidebarCollapsed ? "flex flex-1 flex-col items-center px-2 py-4" : "flex flex-1 flex-col px-4 py-4"}>
+            {sidebarGuide ? (
+              <div className={isSidebarCollapsed ? "mb-4 flex justify-center" : "mb-4"}>
+                <GuideTriggerButton
+                  collapsed={isSidebarCollapsed}
+                  icon={<GuideIcon className="h-4 w-4" />}
+                  label={sidebarGuide.buttonLabel}
+                  onClick={openGuide}
+                />
+              </div>
+            ) : null}
+
             <Link
               href={`/${locale}/dashboard`}
               aria-label={dictionary.brand}
@@ -452,6 +572,8 @@ export function ConsoleShell({
                 collapsed={isSidebarCollapsed}
                 href={`/${locale}/dashboard`}
                 icon={<DashboardIcon className="h-4 w-4" />}
+                guideActive={guideActiveTarget === "dashboard"}
+                guideTarget="dashboard"
                 label={dictionary.nav.dashboard}
               />
 
@@ -471,6 +593,8 @@ export function ConsoleShell({
                         collapsed={isSidebarCollapsed}
                         href={`/${locale}/${item.href}`}
                         icon={<ItemIcon className="h-4 w-4" />}
+                        guideActive={guideActiveTarget === item.key}
+                        guideTarget={item.key}
                         key={item.key}
                         label={dictionary.nav[item.key]}
                       />
@@ -488,6 +612,14 @@ export function ConsoleShell({
                   label={dictionary.nav.feedback}
                   onClick={openFeedbackPanel}
                 />
+                {sidebarGuide ? (
+                  <GuideTriggerButton
+                    collapsed
+                    icon={<GuideIcon className="h-4 w-4" />}
+                    label={sidebarGuide.buttonLabel}
+                    onClick={openGuide}
+                  />
+                ) : null}
                 <Link
                   aria-label={dictionary.nav.settings}
                   className={[
@@ -560,6 +692,16 @@ export function ConsoleShell({
                     onClick={openFeedbackPanel}
                   />
                 </div>
+                {sidebarGuide ? (
+                  <div className="mb-3">
+                    <GuideTriggerButton
+                      collapsed={false}
+                      icon={<GuideIcon className="h-4 w-4" />}
+                      label={sidebarGuide.buttonLabel}
+                      onClick={openGuide}
+                    />
+                  </div>
+                ) : null}
                 <Link
                   className={[
                     "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition",
@@ -633,6 +775,16 @@ export function ConsoleShell({
         )}
         <main className="min-w-0 flex-1 px-4 py-5 md:px-8 md:py-7">{children}</main>
       </div>
+      {sidebarGuide ? (
+        <DashboardGuideOverlay
+          copy={sidebarGuide}
+          open={isGuideOpen}
+          sessionKey={guideSessionKey}
+          onActiveTargetChange={setGuideActiveTarget}
+          onClose={closeGuide}
+          onComplete={completeGuide}
+        />
+      ) : null}
       <FeedbackPanel
         currentEmail={currentUser.email}
         currentPath={pathname}

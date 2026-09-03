@@ -61,7 +61,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("dashboard onboarding walks through the first-use steps once", async ({ page }) => {
+test("dashboard onboarding anchors to the sidebar and can be reopened", async ({ page }) => {
   await page.route(/http:\/\/localhost:(8000|8070)\/courses(\?.*)?$/, async (route) => {
     if (route.request().method() === "OPTIONS") {
       await route.fulfill({ status: 204, headers: apiHeaders });
@@ -77,21 +77,33 @@ test("dashboard onboarding walks through the first-use steps once", async ({ pag
 
   await page.goto("/zh/dashboard");
 
-  const dialog = page.getByRole("dialog");
+  const dialog = page.getByRole("dialog", { name: "开始使用 PageAlong" });
+  const guideButton = page.getByRole("button", { name: "使用引导" });
+  await expect(guideButton).toBeVisible();
   await expect(dialog).toBeVisible();
   await expect(page.getByText("先导入内容")).toBeVisible();
+  await expect(page.getByRole("link", { name: "课程导入" })).toHaveAttribute("data-guide-active", "true");
 
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByText("回到工作台继续")).toBeVisible();
+  await expect(page.getByRole("link", { name: "工作台" })).toHaveAttribute("data-guide-active", "true");
 
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.getByRole("heading", { name: "在课程库里整理" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "课程库" })).toHaveAttribute("data-guide-active", "true");
 
-  await page.waitForTimeout(100);
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page.getByRole("heading", { name: "系列课程怎么用" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "系列课程" })).toHaveAttribute("data-guide-active", "true");
+
   await page.getByRole("button", { name: "完成" }).click();
 
   await expect(dialog).toHaveCount(0);
   await expect.poll(async () => page.evaluate(() => window.localStorage.getItem("pagealong.onboarding.dashboard.v1"))).toBe("1");
+
+  await guideButton.click();
+  await expect(dialog).toBeVisible();
+  await expect(page.getByText("先导入内容")).toBeVisible();
 
   await page.reload();
   await expect(page.getByRole("dialog")).toHaveCount(0);

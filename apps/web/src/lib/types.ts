@@ -50,6 +50,13 @@ export type PaginatedList<T> = {
   pagination: Pagination;
 };
 
+export type StoryComment = {
+  id: string;
+  content: string;
+  author_email: string;
+  created_at: string;
+};
+
 export type CourseBase = {
   id: string;
   title: string;

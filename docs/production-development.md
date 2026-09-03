@@ -197,9 +197,6 @@ cd /www/web_reader && scripts/prod-apps.sh restart
 cd apps/mobile
 source ~/.nvm/nvm.sh
 nvm use 24
-npm run start -- --clear
-
-# 本地调试需要把环境变量加上
 EXPO_PUBLIC_WEB_BASE_URL=https://web-reader.zbpblog.cn EXPO_PUBLIC_API_BASE_URL=https://web-reader.zbpblog.cn/api npm run start -- --clear
 ```
 

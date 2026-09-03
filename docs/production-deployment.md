@@ -29,7 +29,7 @@ make bootstrap-prod
 这条路径会做这些事：
 
 1. 检测 `git`、`make`、`curl`、`tmux`、`ffmpeg`、`docker`、`node`、`npm` 和 Python 3.12。
-2. 在 Debian / Ubuntu 上用 `apt-get` 自动安装缺失依赖。
+2. 在 Debian / Ubuntu 上用 `apt-get` 自动安装缺失依赖；在 macOS 上用 Homebrew 自动安装可装的缺失依赖。
 3. 生成 `.env`（如果还没有）。
 4. 当数据库、Redis 或对象存储仍指向本地服务时，调用 `make up` 补齐本地依赖。
 5. 安装项目依赖、初始化数据库、构建 Web、重启应用进程。
