@@ -645,6 +645,13 @@ EOF
   rm -rf "${build_backup}"
 
   cat .next/BUILD_ID
+
+  if command -v tmux >/dev/null 2>&1; then
+    echo "web: restarting web session after successful build"
+    start_one web
+  else
+    echo "web: tmux not available; start the web server manually (scripts/prod-apps.sh start)" >&2
+  fi
 }
 
 doctor() {

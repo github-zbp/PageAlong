@@ -185,6 +185,10 @@ scripts/prod-apps.sh attach web
 
 ### 如果前端改过，需要先构建
 cd /www/web_reader && scripts/prod-apps.sh build-web
+
+`build-web` 构建成功后会重新启动 `web_reader_web` tmux 会话（web 服务），构建失败时会恢复上一次的构建产物且不启动 web。
+如果只改了后端代码（API / worker），不需要构建：
+
 cd /www/web_reader && scripts/prod-apps.sh restart
 
 ---
@@ -222,3 +226,8 @@ services/api/.venv/bin/python scripts/promote_user_to_admin.py --email user@exam
 ```
 
 也可以按用户 ID 设置：--user-id <user_id>
+
+## 解压命令
+```
+tar -xzf /www/web_reader-src.tar.gz -C /www/web_reader
+```
