@@ -165,8 +165,7 @@ export function ImportFileForm({
     setError("");
   }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submit() {
     if (selectedFiles.length === 0) {
       setError(dictionary.import.fileNoFiles);
       return;
@@ -205,7 +204,7 @@ export function ImportFileForm({
 
   return (
     <div className="space-y-4">
-      <form onSubmit={submit} className="space-y-4 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
+      <section className="space-y-4 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">
         <div className="flex flex-wrap gap-2">
           {(
             [
@@ -282,11 +281,12 @@ export function ImportFileForm({
         <button
           className="pa-focus rounded-md bg-[var(--pa-green)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           disabled={isSubmitting}
-          type="submit"
+          onClick={() => void submit()}
+          type="button"
         >
           {isSubmitting ? dictionary.import.fileSubmitting : dictionary.import.fileSubmit}
         </button>
-      </form>
+      </section>
 
       {batch ? (
         <section className="space-y-3 rounded-lg border border-[var(--pa-line)] bg-[var(--pa-surface)] p-4">

@@ -5,6 +5,10 @@ export type SiteLink = {
   label: string;
 };
 
+export type MarketingSearchParams = {
+  lang?: string | string[];
+};
+
 const marketingNavBase = {
   zh: [
     { path: "/guide", label: "指南" },
@@ -50,6 +54,25 @@ export const marketingPageTitles = {
   }
 } as const;
 
+export const marketingMetadataTitles = {
+  zh: {
+    guide: "指南 - 页相随 PageAlong",
+    download: "下载 - 页相随 PageAlong",
+    blog: "博客 - 页相随 PageAlong",
+    story: "产品故事 - 页相随 PageAlong",
+    privacy: "隐私政策 - 页相随 PageAlong",
+    terms: "用户条款 - 页相随 PageAlong"
+  },
+  en: {
+    guide: "Guide - PageAlong",
+    download: "Download - PageAlong",
+    blog: "Blog - PageAlong",
+    story: "Product Story - PageAlong",
+    privacy: "Privacy Policy - PageAlong",
+    terms: "Terms of Use - PageAlong"
+  }
+} as const;
+
 export const marketingComingSoonCopy = {
   zh: {
     eyebrow: "即将开放",
@@ -69,7 +92,15 @@ export const marketingFooterNote = {
 } as const;
 
 export function marketingHref(pathname: string, locale: Locale): string {
-  return locale === "en" ? `${pathname}?lang=en` : pathname;
+  if (locale !== "en") {
+    return pathname;
+  }
+  return pathname === "/" ? "/en" : `/en${pathname}`;
+}
+
+export function resolveMarketingLocale(searchParams?: MarketingSearchParams): Locale {
+  const rawValue = Array.isArray(searchParams?.lang) ? searchParams.lang[0] : searchParams?.lang;
+  return rawValue === "en" ? "en" : "zh";
 }
 
 export function marketingNavLinks(locale: Locale): SiteLink[] {

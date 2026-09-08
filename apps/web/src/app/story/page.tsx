@@ -7,24 +7,22 @@ import {
   marketingFooterLinks,
   marketingFooterNote,
   marketingHref,
-  marketingNavLinks
+  marketingMetadataTitles,
+  marketingNavLinks,
+  resolveMarketingLocale,
+  type MarketingSearchParams
 } from "@/lib/site";
-import { dictionaries, type Locale } from "@/lib/i18n";
+import { dictionaries } from "@/lib/i18n";
 import { loadStoryMarkdown, renderStoryMarkdown } from "@/lib/story-markdown";
-
-function normalizeLocale(value: string | string[] | undefined): Locale {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "en" ? "en" : "zh";
-}
 
 export async function generateMetadata({
   searchParams
 }: {
-  searchParams?: { lang?: string | string[] };
+  searchParams?: MarketingSearchParams;
 }): Promise<Metadata> {
-  const locale = normalizeLocale(searchParams?.lang);
+  const locale = resolveMarketingLocale(searchParams);
   return {
-    title: locale === "zh" ? "产品故事 - 页相随" : "Product Story - PageAlong",
+    title: marketingMetadataTitles[locale].story,
     description:
       locale === "zh"
         ? "页相随 PageAlong 的产品故事，直接从 markdown 文档渲染。"
@@ -37,9 +35,9 @@ export const dynamic = "force-dynamic";
 export default async function StoryPage({
   searchParams
 }: {
-  searchParams?: { lang?: string | string[] };
+  searchParams?: MarketingSearchParams;
 }) {
-  const locale = normalizeLocale(searchParams?.lang);
+  const locale = resolveMarketingLocale(searchParams);
   const pageHref = marketingHref("/story", locale);
   const markdown = await loadStoryMarkdown(locale);
   const storyHtml = renderStoryMarkdown(markdown);

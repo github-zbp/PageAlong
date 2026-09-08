@@ -11,7 +11,7 @@ export function alternateLocale(locale: Locale): Locale {
 }
 
 export function homepageHref(locale: Locale): string {
-  return locale === "en" ? "/?lang=en" : "/";
+  return locale === "en" ? "/en" : "/";
 }
 
 export const dictionaries = {

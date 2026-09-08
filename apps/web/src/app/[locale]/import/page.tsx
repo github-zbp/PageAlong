@@ -15,6 +15,7 @@ function ImportChoice({
 }) {
   return (
     <Link
+      prefetch={false}
       className="group flex min-h-36 flex-col justify-between rounded-md border border-[var(--pa-line)] bg-[var(--pa-surface)] p-5 transition hover:border-[var(--pa-green)] hover:bg-[var(--pa-green-soft)]"
       href={href}
     >

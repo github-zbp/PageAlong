@@ -5,13 +5,22 @@ import {
   marketingFooterLinks,
   marketingFooterNote,
   marketingHref,
-  marketingNavLinks
+  marketingMetadataTitles,
+  marketingNavLinks,
+  resolveMarketingLocale,
+  type MarketingSearchParams
 } from "@/lib/site";
-import type { Locale } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "用户条款 - 页相随 PageAlong"
-};
+export function generateMetadata({
+  searchParams
+}: {
+  searchParams?: MarketingSearchParams;
+}): Metadata {
+  const locale = resolveMarketingLocale(searchParams);
+  return {
+    title: marketingMetadataTitles[locale].terms
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -56,17 +65,12 @@ const termsCopy = {
   }
 } as const;
 
-function normalizeLocale(value: string | string[] | undefined): Locale {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "en" ? "en" : "zh";
-}
-
 export default function TermsPage({
   searchParams
 }: {
-  searchParams?: { lang?: string | string[] };
+  searchParams?: MarketingSearchParams;
 }) {
-  const locale = normalizeLocale(searchParams?.lang);
+  const locale = resolveMarketingLocale(searchParams);
   const copy = termsCopy[locale];
   const pageHref = marketingHref("/terms", locale);
 

@@ -5,13 +5,22 @@ import {
   marketingFooterLinks,
   marketingFooterNote,
   marketingHref,
-  marketingNavLinks
+  marketingMetadataTitles,
+  marketingNavLinks,
+  resolveMarketingLocale,
+  type MarketingSearchParams
 } from "@/lib/site";
-import type { Locale } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "隐私政策 - 页相随 PageAlong"
-};
+export function generateMetadata({
+  searchParams
+}: {
+  searchParams?: MarketingSearchParams;
+}): Metadata {
+  const locale = resolveMarketingLocale(searchParams);
+  return {
+    title: marketingMetadataTitles[locale].privacy
+  };
+}
 
 export const dynamic = "force-dynamic";
 
@@ -56,17 +65,12 @@ const privacyCopy = {
   }
 } as const;
 
-function normalizeLocale(value: string | string[] | undefined): Locale {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "en" ? "en" : "zh";
-}
-
 export default function PrivacyPage({
   searchParams
 }: {
-  searchParams?: { lang?: string | string[] };
+  searchParams?: MarketingSearchParams;
 }) {
-  const locale = normalizeLocale(searchParams?.lang);
+  const locale = resolveMarketingLocale(searchParams);
   const copy = privacyCopy[locale];
   const pageHref = marketingHref("/privacy", locale);
 

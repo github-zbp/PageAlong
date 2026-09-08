@@ -9,20 +9,25 @@ import {
   marketingFooterLinks,
   marketingFooterNote,
   marketingHref,
-  marketingNavLinks
+  marketingMetadataTitles,
+  marketingNavLinks,
+  resolveMarketingLocale,
+  type MarketingSearchParams
 } from "@/lib/site";
 import type { Locale } from "@/lib/i18n";
 
-export const metadata: Metadata = {
-  title: "博客 - 页相随 PageAlong"
-};
+export function generateMetadata({
+  searchParams
+}: {
+  searchParams?: MarketingSearchParams;
+}): Metadata {
+  const locale = resolveMarketingLocale(searchParams);
+  return {
+    title: marketingMetadataTitles[locale].blog
+  };
+}
 
 export const dynamic = "force-dynamic";
-
-function normalizeLocale(value: string | string[] | undefined): Locale {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  return rawValue === "en" ? "en" : "zh";
-}
 
 function formatDate(value: string | null, locale: Locale): string {
   if (!value) {
@@ -40,9 +45,9 @@ export default async function BlogDetailPage({
   searchParams
 }: {
   params: { slug: string };
-  searchParams?: { lang?: string | string[] };
+  searchParams?: MarketingSearchParams;
 }) {
-  const locale = normalizeLocale(searchParams?.lang);
+  const locale = resolveMarketingLocale(searchParams);
   const post = await getPublicBlog(params.slug, locale).catch(() => null);
   if (!post) {
     notFound();

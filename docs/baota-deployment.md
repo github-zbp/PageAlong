@@ -265,7 +265,6 @@ scripts/prod-apps.sh build-web
 
 看到 `.next/BUILD_ID` 输出即表示构建完成。
 `build-web` 现在会跳过 Next 的内建类型和 lint 检查；需要检查时单独运行 `npm run typecheck`。脚本默认给 `next build` 加上 `NODE_OPTIONS=--max-old-space-size=256` 和 `NEXT_BUILD_CPUS=1`，用来降低低内存服务器上的 OOM 风险；如需调整，可在执行前设置 `WEB_BUILD_NODE_OPTIONS` 或 `WEB_BUILD_CPUS`。
-`build-web` 会先停止 `web_reader_web` 会话再重建，构建成功后会重新拉起 web 会话；如果构建失败，脚本会恢复上一次的构建产物并且不会启动 web。
 
 如果构建停在 `Creating an optimized production build ...` 后显示 `Killed`，通常表示线上服务器或面板把 Next.js 构建进程用 `SIGKILL` 终止了。可以先在服务器确认：
 
@@ -492,10 +491,9 @@ source .env
 set +a
 
 scripts/prod-apps.sh build-web
+scripts/prod-apps.sh restart
 scripts/prod-apps.sh status
 ```
-
-`build-web` 成功后会自动拉起 `web_reader_web` 会话，因此纯前端更新不需要再单独 `restart`（多执行一次 `restart` 也没有副作用，已运行的会话不会重复启动）。
 
 如果只改后端代码，不改前端构建相关内容，可以只重启：
 

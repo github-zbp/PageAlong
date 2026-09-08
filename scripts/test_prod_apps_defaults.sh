@@ -533,37 +533,6 @@ if [[ ! -f "${FAKE_ROOT}/apps/web/.next/static/chunks/webpack-new.js" ]]; then
   exit 1
 fi
 
-set +e
-restart_build_output="$(
-  PATH="${TMP_DIR}/bin:${PATH}" \
-  PROJECT_ROOT="${FAKE_ROOT}" \
-  TMUX_WEB_SESSION_PRESENT=0 \
-  WEB_SESSION_NAME="web_reader_web" \
-  TMUX_CALL_LOG="${TMP_DIR}/tmux-calls-build-restart-web" \
-  NEXT_PUBLIC_API_BASE_URL="/api" \
-  "${PROJECT_ROOT}/scripts/prod-apps.sh" build-web 2>&1
-)"
-restart_build_status="$?"
-set -e
-
-if [[ "${restart_build_status}" -ne 0 ]]; then
-  printf "Expected build-web to succeed when no web session is running.\n\nActual output:\n%s\n" \
-    "${restart_build_output}" >&2
-  exit 1
-fi
-
-if ! grep -F "web: restarting web session after successful build" <<<"${restart_build_output}" >/dev/null; then
-  printf "Expected build-web to announce restarting the web session.\n\nActual output:\n%s\n" \
-    "${restart_build_output}" >&2
-  exit 1
-fi
-
-if ! grep -F "new-session -d -s web_reader_web" "${TMP_DIR}/tmux-calls-build-restart-web" >/dev/null; then
-  printf "Expected build-web to start a new web tmux session after a successful build.\n\nCalls:\n%s\n" \
-    "$(cat "${TMP_DIR}/tmux-calls-build-restart-web")" >&2
-  exit 1
-fi
-
 printf '%s\n' "previous-build-id" > "${FAKE_ROOT}/apps/web/.next/BUILD_ID"
 printf '%s\n' "previous chunk" > "${FAKE_ROOT}/apps/web/.next/static/chunks/webpack-old.js"
 

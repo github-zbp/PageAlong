@@ -79,6 +79,7 @@ test("dashboard onboarding anchors to the sidebar and can be reopened", async ({
 
   const dialog = page.getByRole("dialog", { name: "开始使用 PageAlong" });
   const guideButton = page.getByRole("button", { name: "使用引导" });
+  await expect(guideButton).toHaveCount(1);
   await expect(guideButton).toBeVisible();
   await expect(dialog).toBeVisible();
   await expect(page.getByText("先导入内容")).toBeVisible();

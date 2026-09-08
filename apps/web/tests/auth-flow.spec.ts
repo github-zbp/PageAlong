@@ -257,7 +257,7 @@ test("marketing homepage switches between Chinese and English", async ({ page })
   await expect(page.getByRole("heading", { name: "把读不完的网页、文章和课件变成通勤也能继续听的有声课程" })).toBeVisible();
   await page.getByRole("link", { name: "English" }).click();
 
-  await expect(page).toHaveURL(/\/\?lang=en$/);
+  await expect(page).toHaveURL(/\/en$/);
   await expect(
     page.getByRole("heading", { name: "A fragmented reader that turns saved content into downloadable audio courses" })
   ).toBeVisible();
@@ -284,7 +284,7 @@ test("login and registration pages link back to the homepage", async ({ page }) 
   await expect(page).toHaveURL(/\/$/);
 
   await page.goto("/en/register");
-  await expect(page.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/?lang=en");
+  await expect(page.getByRole("link", { name: "Back to home" })).toHaveAttribute("href", "/en");
   await page.getByRole("link", { name: "Back to home" }).click();
-  await expect(page).toHaveURL(/\/\?lang=en$/);
+  await expect(page).toHaveURL(/\/en$/);
 });

@@ -528,17 +528,6 @@ export function ConsoleShell({
           </button>
 
           <div className={isSidebarCollapsed ? "flex flex-1 flex-col items-center px-2 py-4" : "flex flex-1 flex-col px-4 py-4"}>
-            {sidebarGuide ? (
-              <div className={isSidebarCollapsed ? "mb-4 flex justify-center" : "mb-4"}>
-                <GuideTriggerButton
-                  collapsed={isSidebarCollapsed}
-                  icon={<GuideIcon className="h-4 w-4" />}
-                  label={sidebarGuide.buttonLabel}
-                  onClick={openGuide}
-                />
-              </div>
-            ) : null}
-
             <Link
               href={`/${locale}/dashboard`}
               aria-label={dictionary.brand}
